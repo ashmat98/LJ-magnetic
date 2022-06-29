@@ -87,11 +87,19 @@ class SimulatorLennard(SimulatorIdeal):
         return  self.epsilon * F * (1/self.sigma)
     
     def interaction_energy(self, r, v):
-        self.LJ_potential(self, r)
+        self.LJ_potential(r)
 
     
     def calc_acceleration(self, r, v, t):
         return (np.sum(self.LJ_force(r), axis = 2) 
                 + self.external_force(r)) / self.mass
+
+    def other_metrics(self, r, v, t):
+        return {"KE": self.kinetic_energy(r,v), 
+                "PE": self.external_potential_energy(r,v),
+                "IE": self.interaction_energy(r,v),
+                "L" : self.angular_momentum(r, v),
+                "OMEGA": self.angular_velocity(r, v)
+        }
 
 

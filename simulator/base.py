@@ -10,7 +10,8 @@ class SimulatorBase:
         self.r_init = None
         self.v_init = None
         self.last_a = None
-        
+        self.EPS = 1e-8
+
     def norm(self, r):
         return np.sqrt(np.sum(r**2, axis=0))
 
@@ -55,6 +56,13 @@ class SimulatorBase:
     def interaction_energy(self, r, v):
         raise NotImplementedError
 
+    def angular_momentum(self, r, v):
+        return np.cross(r.T, v.T).T * self.mass
+
+    def angular_velocity(self, r, v):
+        return np.cross(r.T, v.T).T / (self.EPS + np.sum(r**2, axis=0))
+
+
     def system_energy(self, r, v):
         KE = self.kinetic_energy(r, v)
         PE = self.external_potential_energy(r, v)
@@ -91,11 +99,13 @@ class SimulatorBase:
     def next_time(self, t):
         return round(t+self.dt, 7)
 
-
-    def init_positions_velocities(self, energy, sigma_grid, position_random_shift_percentage, **kwargs):
+    def init_positions_velocities(self, energy, sigma_grid, position_random_shift_percentage, planar, **kwargs):
         def helper(x):
             return np.concatenate([-x[::-1][:-1], x])
         bounds = np.sqrt(energy * 2 * self.abc**2)
+        if planar:
+            bounds[2] = self.EPS
+
         grid_points = [helper(np.arange(0, bnd, sigma_grid)) for bnd in bounds]
         points = np.stack(np.meshgrid(*grid_points)).reshape(3,-1)
         points += np.random.randn(*points.shape) * position_random_shift_percentage * sigma_grid
@@ -106,6 +116,8 @@ class SimulatorBase:
         v_mag = np.sqrt(2 * kinetic / self.mass)
 
         v_init = np.random.randn(3, N)
+        if planar:
+            v_init[2,:] = 0
         v_init = v_init / self.norm(v_init) * v_mag
 
         self.r_init = r_init
@@ -118,8 +130,6 @@ class SimulatorBase:
 
     def other_metrics(self, r, v, t):
         return dict()
-
-
 
     def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
         """
