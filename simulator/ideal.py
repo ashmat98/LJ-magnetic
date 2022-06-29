@@ -1,7 +1,4 @@
-from cv2 import Algorithm
 import numpy as np
-from collections import defaultdict
-from tqdm import tqdm
 from simulator.base import SimulatorBase
 
 class SimulatorIdeal(SimulatorBase):
