@@ -2,12 +2,15 @@ import numpy as np
 from simulator.base import SimulatorBase
 
 class SimulatorIdeal(SimulatorBase):
-    def __init__(self, abc, mass, **kwargs):
+    def __init__(self, abc=None, mass=None, **kwargs):
         super().__init__(**kwargs)
         self.mass = mass
         self.abc = abc
-        self.abc_inv_square = self.abc ** (-2)
-        
+        self.initialize()
+
+    def initialize(self):
+        if self.abc is not None:
+            self.abc_inv_square = self.abc ** (-2)
         self.step = None
         self.last_a = None
 
@@ -31,3 +34,17 @@ class SimulatorIdeal(SimulatorBase):
         return {"KE": self.kinetic_energy(r,v), 
                 "PE": self.external_potential_energy(r,v)
         }
+
+    def dump_dict(self):
+        data = super().dump_dict()
+        data.update(
+            {"abc" : self.abc,
+             "mass" : self.mass}
+        )
+        return data
+
+    def apply_loaded(self, data):
+        super().apply_loaded(data)
+        self.abc = data["abc"]
+        self.mass = data["mass"]
+        self.initialize()

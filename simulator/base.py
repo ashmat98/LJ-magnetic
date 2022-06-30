@@ -1,7 +1,11 @@
+from copyreg import pickle
 import stat
 import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
+import pickle
+import os
+import datetime
 
 class SimulatorBase:
     def __init__(self, **kwargs):
@@ -93,9 +97,15 @@ class SimulatorBase:
 
     def get_history(self):
         return self.history
+    
+    def set_history(self, history):
+        self.history = self.to_list(history)
 
     def particle_number(self):
-        return self.r_init.shape[1]
+        if self.r_init is not None:
+            return self.r_init.shape[1]
+        else:
+            return 0
 
     def next_time(self, t):
         return round(t+self.dt, 7)
@@ -135,6 +145,34 @@ class SimulatorBase:
 
     def other_metrics(self, r, v, t):
         return dict()
+    
+    def dump_dict(self):
+        return {
+            "history": self.history,
+            "dt" : self.dt,
+            "r_init" : self.r_init,
+            "v_init" : self.v_init,
+            "datetime" : datetime.datetime.now()
+        }
+
+    def apply_loaded(self, data):
+        self.history = data["history"]
+        self.dt = data["dt"]
+        self.r_init = data["r_init"]
+        self.v_init = data["v_init"]
+        
+    def dump(self, name, detailed_name=False):
+        if detailed_name:
+            name += f" B-{self.Bz} N-{self.particle_number()}"
+            name += f" {datetime.datetime.now().strftime('%m-%d-%Y %H-%M-%S')}"
+        name += ".pkl"
+        with open(os.path.join("dumps", name), "wb") as file:
+            pickle.dump(self.dump_dict(), file)
+
+    def load(self, name):
+        with open(os.path.join("dumps", name), "rb") as file:
+            data = pickle.load(file)
+            self.apply_loaded(data)
 
     def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
         """
@@ -163,7 +201,7 @@ class SimulatorBase:
         self.before_simulation(r,v,t, algorithm)
         self.update_step_function(algorithm)
 
-        for it in tqdm(range(int(iteration_time/dt)), mininterval=1):
+        for it in tqdm(range(int((iteration_time+self.EPS)/dt)), mininterval=1):
         #     r,v,a,t,dp = step_ideal(r, v,a, t)
             r,v,t = self.step(r, v, t)
 
@@ -180,6 +218,13 @@ class SimulatorBase:
         dct = dct.copy()
         for key, value in dct.items():
             dct[key] = np.array(value)
+        return dct
+    
+    @staticmethod
+    def to_list(dct):
+        dct = dct.copy()
+        for key, value in dct.items():
+            dct[key] = list(value)
         return dct
 
     def update_step_function(self, algorithm):

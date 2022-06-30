@@ -2,7 +2,7 @@ import numpy as np
 from simulator.ideal import SimulatorIdeal
 
 class SimulatorLennard(SimulatorIdeal):
-    def __init__(self, sigma, epsilon, **kwargs):
+    def __init__(self, sigma=None, epsilon=None, **kwargs):
         super().__init__(**kwargs)
         self.sigma = sigma
         self.epsilon = epsilon
@@ -102,4 +102,15 @@ class SimulatorLennard(SimulatorIdeal):
                 "OMEGA": self.angular_velocity(r, v)
         }
 
+    def dump_dict(self):
+        data = super().dump_dict()
+        data.update({
+            "sigma" : self.sigma,
+            "epsilon" : self.epsilon
+            })
+        return data
 
+    def apply_loaded(self, data):
+        super().apply_loaded(data)
+        self.sigma = data["sigma"]
+        self.epsilon = data["epsilon"]

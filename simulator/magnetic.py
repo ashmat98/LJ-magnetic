@@ -2,7 +2,7 @@ import numpy as np
 from simulator.lennard import SimulatorLennard
 
 class SimulatorMagnetic(SimulatorLennard):
-    def __init__(self, Bz, **kwargs):
+    def __init__(self, Bz=None, **kwargs):
         super().__init__(**kwargs)
         self.Bz = Bz
     
@@ -38,6 +38,18 @@ class SimulatorMagnetic(SimulatorLennard):
         metrics = super().other_metrics(r, v, t)
         metrics["BInertia"] = 0.5 * self.Bz * np.sum(r[:2]**2, axis=0)
         return metrics
+
+    def dump_dict(self):
+        data = super().dump_dict()
+        data.update({
+            "Bz" : self.Bz
+            })
+        return data
+
+    def apply_loaded(self, data):
+        super().apply_loaded(data)
+        self.Bz = data["Bz"]
+    
     # def step_VERLET(self, r, v, t):
     #     """
     #     Verlet algorithm with magnetic field
