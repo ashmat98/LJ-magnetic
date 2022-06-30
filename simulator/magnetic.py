@@ -8,7 +8,7 @@ class SimulatorMagnetic(SimulatorLennard):
     
     def calc_acceleration(self, r, v, t):
         return (np.sum(self.LJ_force(r), axis = 2) 
-                + self.external_force(r)) / self.mass
+                + self.external_force(r)) 
 
     def step_VERLET(self, r, v, t):
         """
@@ -16,7 +16,7 @@ class SimulatorMagnetic(SimulatorLennard):
         """
         dt, dt2 = self.dt, self.dt2
         a = self.last_a
-        omega = self.Bz / self.mass
+        omega = self.Bz 
 
         r1 = (r + v * dt + 0.5 * a * dt2 
             + 0.5 * dt2 * omega * np.cross(v[:2].T,[0,0,1]).T)
@@ -58,7 +58,7 @@ class SimulatorMagnetic(SimulatorLennard):
     #     Bz = self.Bz
     #     Bfield = np.array([[0,0,self.Bz]])
 
-    #     alpha = 0.5*dt / self.mass
+    #     alpha = 0.5*dt 
     #     d = v + alpha * np.cross(v[:2,:].T, Bfield).T
     #     r = r + d * dt
         

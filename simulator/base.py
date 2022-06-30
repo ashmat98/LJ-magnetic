@@ -53,7 +53,7 @@ class SimulatorBase:
         raise NotImplementedError
     
     def kinetic_energy(self, r, v):
-        return 0.5 * np.sum(v**2, axis=0) * self.mass
+        return 0.5 * np.sum(v**2, axis=0)
     
     def external_potential_energy(self, r, v):
         raise NotImplementedError
@@ -62,7 +62,7 @@ class SimulatorBase:
         raise NotImplementedError
 
     def angular_momentum(self, r, v):
-        return np.cross(r.T, v.T).T * self.mass
+        return np.cross(r.T, v.T).T
 
     def angular_velocity(self, r, v):
         return np.cross(r.T, v.T).T / (self.EPS + np.sum(r**2, axis=0))
@@ -125,7 +125,7 @@ class SimulatorBase:
         N = r_init.shape[1]
 
         kinetic = (energy - self.external_potential(r_init))
-        v_mag = np.sqrt(2 * kinetic / self.mass)
+        v_mag = np.sqrt(2 * kinetic)
 
         v_init = np.random.randn(3, N)
         if planar:

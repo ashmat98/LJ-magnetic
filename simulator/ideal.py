@@ -2,9 +2,8 @@ import numpy as np
 from simulator.base import SimulatorBase
 
 class SimulatorIdeal(SimulatorBase):
-    def __init__(self, abc=None, mass=None, **kwargs):
+    def __init__(self, abc=None, **kwargs):
         super().__init__(**kwargs)
-        self.mass = mass
         self.abc = abc
         self.initialize()
 
@@ -22,7 +21,7 @@ class SimulatorIdeal(SimulatorBase):
         return - r * self.abc_inv_square[:, None]
 
     def calc_acceleration(self, r, v, t):
-        return self.external_force(r) / self.mass
+        return self.external_force(r)
 
     def external_potential_energy(self, r, v):
         return self.external_potential(r)
@@ -38,13 +37,11 @@ class SimulatorIdeal(SimulatorBase):
     def dump_dict(self):
         data = super().dump_dict()
         data.update(
-            {"abc" : self.abc,
-             "mass" : self.mass}
+            {"abc" : self.abc}
         )
         return data
 
     def apply_loaded(self, data):
         super().apply_loaded(data)
         self.abc = data["abc"]
-        self.mass = data["mass"]
         self.initialize()

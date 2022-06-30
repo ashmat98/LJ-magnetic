@@ -92,7 +92,7 @@ class SimulatorLennard(SimulatorIdeal):
     
     def calc_acceleration(self, r, v, t):
         return (np.sum(self.LJ_force(r), axis = 2) 
-                + self.external_force(r)) / self.mass
+                + self.external_force(r))
 
     def other_metrics(self, r, v, t):
         return {"KE": self.kinetic_energy(r,v), 
