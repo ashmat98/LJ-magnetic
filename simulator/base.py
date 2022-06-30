@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from copyreg import pickle
 import stat
 import numpy as np
@@ -6,9 +7,12 @@ from tqdm import tqdm
 import pickle
 import os
 import datetime
+from multiprocessing import Process, Queue
+
 
 class SimulatorBase:
-    def __init__(self, **kwargs):
+    def __init__(self, name=None, logger=None, **kwargs):
+        self.name = name
         self.dt = None
         self.dt2 = None
         self.history = None
@@ -16,6 +20,10 @@ class SimulatorBase:
         self.v_init = None
         self.last_a = None
         self.EPS = 1e-8
+        self.process = None
+        self.queue = Queue()
+        self.logger = logger
+
 
     def norm(self, r):
         return np.sqrt(np.sum(r**2, axis=0))
@@ -148,6 +156,7 @@ class SimulatorBase:
     
     def dump_dict(self):
         return {
+            "name" : self.name,
             "history": self.history,
             "dt" : self.dt,
             "r_init" : self.r_init,
@@ -160,6 +169,7 @@ class SimulatorBase:
         self.dt = data["dt"]
         self.r_init = data["r_init"]
         self.v_init = data["v_init"]
+        self.name = data["name"]
         
     def dump(self, name, detailed_name=False):
         if detailed_name:
@@ -174,44 +184,7 @@ class SimulatorBase:
             data = pickle.load(file)
             self.apply_loaded(data)
 
-    def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
-        """
-        r,v,a,t: initial parameters oof the system
-        box: size of the box
-        history: previous recordings, give if you wwant to continue simulation
-        iteration_time: time to simulate
-        dt: time interval of the one step
-        record_interval: interval of recording the state of the system 
-        """    
-        self.dt = dt
-        self.dt2 = dt * dt
-
-        if self.history is None:
-            self.history = defaultdict(list)
-            self.history["time"].append(0)
-            self.history["rs"].append(self.r_init)
-            self.history["vs"].append(self.v_init)
-            for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
-                    self.history[key].append(value)
-        
-        r = self.history["rs"][-1].copy()
-        v = self.history["vs"][-1].copy()
-        t = self.history["time"][-1]
-
-        self.before_simulation(r,v,t, algorithm)
-        self.update_step_function(algorithm)
-
-        for it in tqdm(range(int((iteration_time+self.EPS)/dt)), mininterval=1):
-        #     r,v,a,t,dp = step_ideal(r, v,a, t)
-            r,v,t = self.step(r, v, t)
-
-            if t - self.history["time"][-1] >= record_interval - dt/4:
-                self.history["time"].append(round(self.history["time"][-1]+record_interval, 6))
-                self.history["vs"].append(v.copy())
-                self.history["rs"].append(r.copy())
-                for key, value in self.other_metrics(r,v,t).items():
-                    self.history[key].append(value)
-        return self.history
+    
 
     @staticmethod
     def to_array(dct):
@@ -274,3 +247,63 @@ class SimulatorBase:
     def before_simulation(self, r, v, t, algorithm):
         if algorithm == "VERLET":
             self.last_a = self.calc_acceleration(r, v, t)
+
+    def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
+        """
+        r,v,a,t: initial parameters oof the system
+        box: size of the box
+        history: previous recordings, give if you wwant to continue simulation
+        iteration_time: time to simulate
+        dt: time interval of the one step
+        record_interval: interval of recording the state of the system 
+        """    
+        self.dt = dt
+        self.dt2 = dt * dt
+
+        if self.history is None:
+            self.history = defaultdict(list)
+            self.history["time"].append(0)
+            self.history["rs"].append(self.r_init)
+            self.history["vs"].append(self.v_init)
+            for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
+                    self.history[key].append(value)
+        
+        r = self.history["rs"][-1].copy()
+        v = self.history["vs"][-1].copy()
+        t = self.history["time"][-1]
+
+        self.before_simulation(r,v,t, algorithm)
+        self.update_step_function(algorithm)
+
+        for it in tqdm(range(int((iteration_time+self.EPS)/dt)), mininterval=1):
+        #     r,v,a,t,dp = step_ideal(r, v,a, t)
+            r,v,t = self.step(r, v, t)
+
+            if t - self.history["time"][-1] >= record_interval - dt/4:
+                self.history["time"].append(round(self.history["time"][-1]+record_interval, 6))
+                self.history["vs"].append(v.copy())
+                self.history["rs"].append(r.copy())
+                for key, value in self.other_metrics(r,v,t).items():
+                    self.history[key].append(value)
+        
+        if self.logger is not None:
+            self.logger.warning(f"Simulation {self.name} finished")
+        return self.history
+    
+    def simulate_async(self,iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
+
+        def helper(queue, **kwargs):
+            history = self.simulate(**kwargs)
+            queue.put(history)
+        
+        self.process = Process(target=helper, 
+            kwargs=dict(queue=self.queue, iteration_time=iteration_time, dt=dt, 
+                        record_interval=record_interval, 
+                        algorithm=algorithm))
+
+        self.process.start()
+    
+    def join(self):
+        self.process.join()
+        self.history = self.queue.get()
+
