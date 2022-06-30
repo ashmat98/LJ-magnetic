@@ -25,7 +25,7 @@ class SimulatorIdeal(SimulatorBase):
         return self.external_potential(r)
 
     def interaction_energy(self, r, v):
-        return 0
+        return np.zeros(r.shape[1])
 
     def other_metrics(self, r, v, t):
         return {"KE": self.kinetic_energy(r,v), 

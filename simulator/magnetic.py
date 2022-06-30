@@ -30,7 +30,7 @@ class SimulatorMagnetic(SimulatorLennard):
         v1[1, :] = (v1[1] - dt * omega * v[0] 
             - 0.25 * dt2 * omega * (a[1] + a1[1] + omega * v[1])) * inv_denom
 
-        self.last_a = a
+        self.last_a = a1
 
         return r1, v1, self.next_time(t)
 
