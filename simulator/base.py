@@ -100,7 +100,8 @@ class SimulatorBase:
     def next_time(self, t):
         return round(t+self.dt, 7)
 
-    def init_positions_velocities(self, energy, sigma_grid, position_random_shift_percentage, planar, **kwargs):
+    def init_positions_velocities(self, energy, sigma_grid, 
+        position_random_shift_percentage, planar, zero_momentum, **kwargs):
         def helper(x):
             return np.concatenate([-x[::-1][:-1], x])
         bounds = np.sqrt(energy * 2 * self.abc**2)
@@ -120,6 +121,9 @@ class SimulatorBase:
         if planar:
             v_init[2,:] = 0
         v_init = v_init / self.norm(v_init) * v_mag
+
+        if zero_momentum:
+            v_init = v_init - v_init.mean(axis=1, keepdims=True)
 
         self.r_init = r_init
         self.v_init = v_init
