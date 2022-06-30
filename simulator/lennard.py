@@ -87,7 +87,7 @@ class SimulatorLennard(SimulatorIdeal):
         return  self.epsilon * F * (1/self.sigma)
     
     def interaction_energy(self, r, v):
-        self.LJ_potential(r)
+        return np.sum(self.LJ_potential(r), axis=1)
 
     
     def calc_acceleration(self, r, v, t):

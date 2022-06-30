@@ -6,6 +6,7 @@ from tqdm import tqdm
 class SimulatorBase:
     def __init__(self, **kwargs):
         self.dt = None
+        self.dt2 = None
         self.history = None
         self.r_init = None
         self.v_init = None
@@ -141,7 +142,7 @@ class SimulatorBase:
         record_interval: interval of recording the state of the system 
         """    
         self.dt = dt
-
+        self.dt2 = dt * dt
 
         if self.history is None:
             self.history = defaultdict(list)
