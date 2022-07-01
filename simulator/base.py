@@ -2,6 +2,7 @@ from asyncio.log import logger
 from copyreg import pickle
 import stat
 import numpy as np
+import pandas as pd
 from collections import defaultdict
 from tqdm import tqdm
 import pickle
@@ -16,6 +17,7 @@ class SimulatorBase:
         self.dt = None
         self.dt2 = None
         self.history = None
+        self.history_arr = None
         self.r_init = None
         self.v_init = None
         self.last_a = None
@@ -23,6 +25,7 @@ class SimulatorBase:
         self.process = None
         self.queue = Queue()
         self.logger = logger
+        self.record_interval = None
 
 
     def norm(self, r):
@@ -104,7 +107,19 @@ class SimulatorBase:
         self.history = None
 
     def get_history(self):
-        return self.history
+        if self.history_arr is None or len(self.history["rs"]) != len(self.history_arr["rs"]):
+            self.history_arr = self.to_array(self.history)
+        return self.history_arr
+
+    def get_data_frames(self, **kwargs):
+        if "record_interval" in kwargs:
+            self.record_interval = kwargs["record_interval"]
+        index = np.arange(0,len(self.history["rs"]))* self.record_interval
+        dframes = dict()
+        dframes["L"] = pd.DataFrame(self.get_history()["L"][:,2,:], index=index)
+        for key in ['KE', 'PE', 'IE', 'BInertia']:
+            dframes[key] = pd.DataFrame(self.get_history()[key], index=index)
+        return dframes
     
     def set_history(self, history):
         self.history = self.to_list(history)
@@ -159,6 +174,7 @@ class SimulatorBase:
             "name" : self.name,
             "history": self.history,
             "dt" : self.dt,
+            "record_interval" : self.record_interval,
             "r_init" : self.r_init,
             "v_init" : self.v_init,
             "datetime" : datetime.datetime.now()
@@ -167,15 +183,18 @@ class SimulatorBase:
     def apply_loaded(self, data):
         self.history = data["history"]
         self.dt = data["dt"]
+        self.record_interval = data.get("record_interval")
         self.r_init = data["r_init"]
         self.v_init = data["v_init"]
         self.name = data["name"]
         
-    def dump(self, name, detailed_name=False):
+    def dump(self, name, detailed_name=True):
         if detailed_name:
-            name += f" B-{self.Bz} N-{self.particle_number()}"
+            steps = len(self.history["rs"]) if self.history is not None else 0
+            name += f" {self.name} B-{self.Bz} N-{self.particle_number()} rec-{steps}"
             name += f" {datetime.datetime.now().strftime('%m-%d-%Y %H-%M-%S')}"
         name += ".pkl"
+        name = name.strip()
         with open(os.path.join("dumps", name), "wb") as file:
             pickle.dump(self.dump_dict(), file)
 
@@ -248,7 +267,8 @@ class SimulatorBase:
         if algorithm == "VERLET":
             self.last_a = self.calc_acceleration(r, v, t)
 
-    def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
+    def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, 
+        algorithm="EULER", dump_name=""):
         """
         r,v,a,t: initial parameters oof the system
         box: size of the box
@@ -259,6 +279,7 @@ class SimulatorBase:
         """    
         self.dt = dt
         self.dt2 = dt * dt
+        self.record_interval = record_interval
 
         if self.history is None:
             self.history = defaultdict(list)
@@ -286,24 +307,28 @@ class SimulatorBase:
                 for key, value in self.other_metrics(r,v,t).items():
                     self.history[key].append(value)
         
+        if dump_name is not None:
+            self.dump(dump_name)
         if self.logger is not None:
             self.logger.warning(f"Simulation {self.name} finished")
         return self.history
     
-    def simulate_async(self,iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
+    def simulate_async(self,iteration_time=1, dt=0.0005, record_interval=0.01, 
+        algorithm="EULER", dump_name=""):
 
-        def helper(queue, **kwargs):
-            history = self.simulate(**kwargs)
-            queue.put(history)
+        # def helper(queue, **kwargs):
+        #     history = self.simulate(**kwargs)
+            
         
-        self.process = Process(target=helper, 
-            kwargs=dict(queue=self.queue, iteration_time=iteration_time, dt=dt, 
+        self.process = Process(target=self.simulate, 
+            kwargs=dict(iteration_time=iteration_time, dt=dt, 
                         record_interval=record_interval, 
-                        algorithm=algorithm))
+                        algorithm=algorithm,
+                        dump_name=dump_name))
 
         self.process.start()
     
-    def join(self):
-        self.process.join()
-        self.history = self.queue.get()
+    # def join(self):
+    #     self.process.join()
+    #     self.history = self.queue.get()
 
