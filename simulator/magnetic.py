@@ -1,10 +1,14 @@
 import numpy as np
 from simulator.lennard import SimulatorLennard
+from simulator.models import Simulation
 
 class SimulatorMagnetic(SimulatorLennard):
     def __init__(self, Bz=None, **kwargs):
+        id, item = kwargs.pop("id", None), kwargs.pop("item", None)
         super().__init__(**kwargs)
         self.Bz = Bz
+        self.load(id=id, item=item)
+
     
     def calc_acceleration(self, r, v, t):
         return (np.sum(self.LJ_force(r), axis = 2) 
@@ -39,32 +43,15 @@ class SimulatorMagnetic(SimulatorLennard):
         metrics["BInertia"] = 0.5 * self.Bz * np.sum(r[:2]**2, axis=0)
         return metrics
 
-    def dump_dict(self):
-        data = super().dump_dict()
-        data.update({
-            "Bz" : self.Bz
-            })
-        return data
-
     def apply_loaded(self, data):
         super().apply_loaded(data)
         self.Bz = data["Bz"]
     
-    # def step_VERLET(self, r, v, t):
-    #     """
-    #     Verlet algorithm with magnetic field
-    #     """
-    #     dt = self.dt
-    #     Bz = self.Bz
-    #     Bfield = np.array([[0,0,self.Bz]])
+    def create_db_object(self):
+        item : Simulation = super().create_db_object()
+        item.Bz = self.Bz
+        return item
 
-    #     alpha = 0.5*dt 
-    #     d = v + alpha * np.cross(v[:2,:].T, Bfield).T
-    #     r = r + d * dt
-        
-    #     v_tmp = (d + alpha * np.cross(d[:2,:].T, Bfield).T)
-    #     v_tmp[2,:] += alpha**2 * B * d[2,:]
-    #     v = v_tmp  / (1 + (alpha* Bz)**2)
-    #     return r, v, self.next_time(t)
-
-
+    def apply_item(self, item: Simulation):
+        super().apply_item(item)
+        self.Bz = item.Bz

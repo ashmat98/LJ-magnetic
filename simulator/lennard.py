@@ -1,13 +1,18 @@
+from signal import Sigmasks
 import numpy as np
 from simulator.ideal import SimulatorIdeal
+from simulator.models import Simulation
 
 class SimulatorLennard(SimulatorIdeal):
     def __init__(self, sigma=None, epsilon=None, **kwargs):
+        id, item = kwargs.pop("id", None), kwargs.pop("item", None)
         super().__init__(**kwargs)
         self.sigma = sigma
         self.epsilon = epsilon
         
         self.last_a = None
+
+        self.load(id=id, item=item)
 
     def LJ_potential(self, r):
         r = r * (1 / self.sigma)
@@ -37,29 +42,6 @@ class SimulatorLennard(SimulatorIdeal):
         np.fill_diagonal(derivative, 0)
 
         return self.epsilon * derivative * (1/self.sigma)
-
-    # def LJ_force_2(diff, params):
-    #     """
-    #     r: NxNx3 ndarray
-    #     r[i,j]: distance vector from j to i, 
-    #             i.e. r_i - r_j
-    #     return F
-    #     F[i,j] = force on i by j
-    #     F[i,i] = 0
-    #     """
-    #     dist = norm(diff)
-        
-    #     one_over_r_power6 = (dist) ** (-6)
-    #     one_over_r_power12 = one_over_r_power6 ** 2
-        
-    #     comon_part = 4 * (12 * one_over_r_power12 - 
-    #                                 6 * one_over_r_power6) / dist**2
-    #     F = comon_part * diff
-    #     np.fill_diagonal(F[0], 0)
-    #     np.fill_diagonal(F[1], 0)
-    #     np.fill_diagonal(F[2], 0)
-    #     return F
-
 
     def LJ_force(self, r):
         """
@@ -109,8 +91,15 @@ class SimulatorLennard(SimulatorIdeal):
             "epsilon" : self.epsilon
             })
         return data
+    
+    def create_db_object(self):
+        item : Simulation = super().create_db_object()
+        item.sigma = self.sigma
+        item.epsilon = self.epsilon
+        return item
 
-    def apply_loaded(self, data):
-        super().apply_loaded(data)
-        self.sigma = data["sigma"]
-        self.epsilon = data["epsilon"]
+    def apply_item(self, item: Simulation):
+        super().apply_item(item)
+        self.sigma = item.sigma
+        self.epsilon = item.epsilon
+        

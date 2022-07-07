@@ -1,13 +1,33 @@
 import numpy as np
 from simulator.base import SimulatorBase
+from simulator.models import Simulation
 
 class SimulatorIdeal(SimulatorBase):
-    def __init__(self, abc=None, **kwargs):
+    def __init__(self, R=None, Rz=None, eccentricity=None, abc=None, **kwargs):
+        id = kwargs.pop("id", None)
+        item = kwargs.pop("item", None)
         super().__init__(**kwargs)
+        self.R = R
+        self.Rz = Rz
+        self.eccentricity = eccentricity
         self.abc = abc
+
         self.initialize()
 
+        self.load(id=id, item=item)
+
     def initialize(self):
+        if self.eccentricity is not None and self.R is not None:
+            self.abc =  np.array(
+                    [self.R / (1-self.eccentricity**2)**(1/4),
+                    self.R * (1-self.eccentricity**2)**(1/4),
+                    self.Rz]
+                )
+        elif self.abc is not None:
+            self.Rz = self.abc[2]
+            self.R = (self.abc[1]**2 + self.abc[0]**2)**0.5
+            self.eccentricity = np.sqrt(1-(self.abc[1]/self.abc[0])**2)
+
         if self.abc is not None:
             self.abc_inv_square = self.abc ** (-2)
         self.step = None
@@ -34,14 +54,13 @@ class SimulatorIdeal(SimulatorBase):
                 "PE": self.external_potential_energy(r,v)
         }
 
-    def dump_dict(self):
-        data = super().dump_dict()
-        data.update(
-            {"abc" : self.abc}
-        )
-        return data
-
-    def apply_loaded(self, data):
-        super().apply_loaded(data)
-        self.abc = data["abc"]
+    def apply_item(self, item: Simulation):
+        super().apply_item(item)
+        self.abc = np.array([item.a, item.b, item.c])
         self.initialize()
+        
+    def create_db_object(self):
+        item : Simulation = super().create_db_object()
+        item.eccentricity = self.eccentricity
+        item.a, item.b, item.c = self.abc
+        return item

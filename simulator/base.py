@@ -1,6 +1,5 @@
-from asyncio.log import logger
-from copyreg import pickle
-import stat
+import pickle
+
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -9,23 +8,38 @@ import pickle
 import os
 import datetime
 from multiprocessing import Process, Queue
-
+from simulator.models import Client, Simulation
 
 class SimulatorBase:
-    def __init__(self, name=None, logger=None, **kwargs):
+    def __init__(self, name=None, logger=None, 
+        item=None, id=None, **kwargs):
+
         self.name = name
+        self.id = None
+
         self.dt = None
-        self.dt2 = None
         self.history = None
         self.history_arr = None
         self.r_init = None
         self.v_init = None
-        self.last_a = None
+
         self.EPS = 1e-8
-        self.process = None
-        self.queue = Queue()
         self.logger = logger
         self.record_interval = None
+        
+        self.start_time = None
+        self.finish_time = None
+
+        self.client = Client()
+        
+        # temporary
+        self.dt2 = None
+        self.last_a = None
+        self.process = None
+        self.queue = Queue()
+
+        self.load(id=id, item=item)
+
 
 
     def norm(self, r):
@@ -162,48 +176,24 @@ class SimulatorBase:
         self.v_init = v_init
         
         return r_init, v_init
-        
+    
+
+    def rotational_push(self, p):
+        for i in range(self.particle_number()):
+            r, v = self.r_init[:, i], self.v_init[:, i]
+            r_mag = np.sqrt((r[0]**2 + r[1]**2))
+            v_mag = self.norm(v)
+            omega = v_mag*r_mag/(r_mag**2 + self.EPS)
+            v = v * (1-p) + p * np.array([-r[1]*omega,r[0]*omega,0])
+            self.v_init[:, i] = v
+
     def step(self, r,v,t):
         raise NotImplementedError
 
     def other_metrics(self, r, v, t):
         return dict()
     
-    def dump_dict(self):
-        return {
-            "name" : self.name,
-            "history": self.history,
-            "dt" : self.dt,
-            "record_interval" : self.record_interval,
-            "r_init" : self.r_init,
-            "v_init" : self.v_init,
-            "datetime" : datetime.datetime.now()
-        }
 
-    def apply_loaded(self, data):
-        self.history = data["history"]
-        self.dt = data["dt"]
-        self.record_interval = data.get("record_interval")
-        self.r_init = data["r_init"]
-        self.v_init = data["v_init"]
-        self.name = data["name"]
-        
-    def dump(self, name, detailed_name=True):
-        if detailed_name:
-            steps = len(self.history["rs"]) if self.history is not None else 0
-            name += f" {self.name} B-{self.Bz} N-{self.particle_number()} rec-{steps}"
-            name += f" {datetime.datetime.now().strftime('%m-%d-%Y %H-%M-%S')}"
-        name += ".pkl"
-        name = name.strip()
-        with open(os.path.join("dumps", name), "wb") as file:
-            pickle.dump(self.dump_dict(), file)
-
-    def load(self, name):
-        with open(os.path.join("dumps", name), "rb") as file:
-            data = pickle.load(file)
-            self.apply_loaded(data)
-
-    
 
     @staticmethod
     def to_array(dct):
@@ -264,11 +254,13 @@ class SimulatorBase:
         return r, v, self.next_time(t)
     
     def before_simulation(self, r, v, t, algorithm):
+        if len(self.history["rs"]) == 1:
+            self.start_time = datetime.datetime.now()
         if algorithm == "VERLET":
             self.last_a = self.calc_acceleration(r, v, t)
 
     def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", dump_name=""):
+        algorithm="EULER", dump_name=None):
         """
         r,v,a,t: initial parameters oof the system
         box: size of the box
@@ -277,6 +269,8 @@ class SimulatorBase:
         dt: time interval of the one step
         record_interval: interval of recording the state of the system 
         """    
+
+
         self.dt = dt
         self.dt2 = dt * dt
         self.record_interval = record_interval
@@ -307,10 +301,7 @@ class SimulatorBase:
                 for key, value in self.other_metrics(r,v,t).items():
                     self.history[key].append(value)
         
-        if dump_name is not None:
-            self.dump(dump_name)
-        if self.logger is not None:
-            self.logger.warning(f"Simulation {self.name} finished")
+        self.finish_time = datetime.datetime.now()
         return self.history
     
     def simulate_async(self,iteration_time=1, dt=0.0005, record_interval=0.01, 
@@ -332,3 +323,45 @@ class SimulatorBase:
     #     self.process.join()
     #     self.history = self.queue.get()
 
+
+
+
+    def create_db_object(self):
+        item = Simulation()
+        item.name = self.name
+        item.start_time = self.start_time
+        item.finish_time = self.finish_time
+        item.L_init = self.angular_momentum(self.r_init, self.v_init)[2].sum()
+        item.E_init = sum(self.system_energy(self.r_init, self.v_init)).sum()
+        item.dt = self.dt
+        item.t = self.history["time"][-1]
+        item.iterations = len(self.history["time"])
+
+        item.history = self.get_history()
+        return item
+
+    def apply_item(self, item : Simulation):
+        self.id = item.id
+        self.name = item.name
+        self.start_time = item.start_time
+        self.finish_time = item.finish_time
+        
+        self.history = self.to_list(item.history)
+        self.dt = item.dt
+        self.record_interval = item.record_interval
+        self.r_init = self.history["rs"][0]
+        self.v_init = self.history["vs"][0]
+        
+        
+    def push_db(self):
+        item = self.create_db_object()
+        self.id = self.client.push(item)
+        return self.id
+        
+    def load(self, item : Simulation = None, id = None):
+        if item is not None:
+            self.apply_item(item)
+        elif id is not None:
+            item = self.client.query_simulation(id)
+            self.apply_item(item)
+        return self
