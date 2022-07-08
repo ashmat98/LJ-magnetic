@@ -24,6 +24,7 @@ class Simulation(Base):
     __tablename__ = "simulation"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(Text)
+    group_name = Column(Text)
     start_time = Column(DateTime)
     finish_time = Column(DateTime)
     eccentricity = Column(Float)
@@ -32,6 +33,7 @@ class Simulation(Base):
     c = Column(Float)
     epsilon = Column(Float)
     sigma = Column(Float)
+    particles = Column(Integer)
     Bz = Column(Float)
     L_init = Column(Float)
     E_init = Column(Float)
