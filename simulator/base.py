@@ -7,16 +7,18 @@ from tqdm import tqdm
 import pickle
 import os
 import datetime
-from multiprocessing import Process, Queue
+# from multiprocessing import Process, Queue
 from simulator.models import Client, Simulation
 
 class SimulatorBase:
-    def __init__(self, name=None, logger=None, 
+    def __init__(self, name=None, group_name=None, logger=None, 
         item=None, id=None, **kwargs):
 
         self.name = name
-        self.id = None
+        self.group_name = group_name
+        self.logger = logger
 
+        self.id = None
         self.dt = None
         self.history = None
         self.history_arr = None
@@ -24,19 +26,17 @@ class SimulatorBase:
         self.v_init = None
 
         self.EPS = 1e-8
-        self.logger = logger
         self.record_interval = None
         
         self.start_time = None
         self.finish_time = None
 
-        self.client = Client()
+        # self.client = Client()
         
         # temporary
         self.dt2 = None
         self.last_a = None
         self.process = None
-        self.queue = Queue()
 
         self.load(id=id, item=item)
 
@@ -181,11 +181,28 @@ class SimulatorBase:
     def rotational_push(self, p):
         for i in range(self.particle_number()):
             r, v = self.r_init[:, i], self.v_init[:, i]
+            r_plane = self.norm(r[:2])
+            e_perp = np.array([-r[1], r[0], 0])/(r_plane + self.EPS)
+            e_par = np.array([r[0], r[1], 0])/(r_plane + self.EPS)
+            e_z = np.array([0,0,1])            
+            
+            v_mag = self.norm(v)
+            v_perp_mag = np.dot(v, e_perp)
+            v_not_perp = v - v_perp_mag * e_perp
+            v = (v_mag * np.sqrt(p) * e_perp 
+                + v_not_perp * np.sqrt((1-p)) * v_mag / (self.norm(v_not_perp) + self.EPS))
+            
+            self.v_init[:, i] = v
+
+    def rotational_push_2(self, p):
+        for i in range(self.particle_number()):
+            r, v = self.r_init[:, i], self.v_init[:, i]
             r_mag = np.sqrt((r[0]**2 + r[1]**2))
             v_mag = self.norm(v)
             omega = v_mag*r_mag/(r_mag**2 + self.EPS)
             v = v * (1-p) + p * np.array([-r[1]*omega,r[0]*omega,0])
             self.v_init[:, i] = v
+
 
     def step(self, r,v,t):
         raise NotImplementedError
@@ -260,7 +277,7 @@ class SimulatorBase:
             self.last_a = self.calc_acceleration(r, v, t)
 
     def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", dump_name=None):
+        algorithm="EULER"):
         """
         r,v,a,t: initial parameters oof the system
         box: size of the box
@@ -304,45 +321,32 @@ class SimulatorBase:
         self.finish_time = datetime.datetime.now()
         return self.history
     
-    def simulate_async(self,iteration_time=1, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", dump_name=""):
-
-        # def helper(queue, **kwargs):
-        #     history = self.simulate(**kwargs)
-            
-        
-        self.process = Process(target=self.simulate, 
-            kwargs=dict(iteration_time=iteration_time, dt=dt, 
-                        record_interval=record_interval, 
-                        algorithm=algorithm,
-                        dump_name=dump_name))
-
-        self.process.start()
-    
-    # def join(self):
-    #     self.process.join()
-    #     self.history = self.queue.get()
-
-
-
+    def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
+        self.simulate(iteration_time, dt, record_interval, algorithm)
+        id = self.push_db()
+        self.id = id
+        return id
 
     def create_db_object(self):
         item = Simulation()
         item.name = self.name
+        item.group_name = self.group_name
         item.start_time = self.start_time
         item.finish_time = self.finish_time
         item.L_init = self.angular_momentum(self.r_init, self.v_init)[2].sum()
         item.E_init = sum(self.system_energy(self.r_init, self.v_init)).sum()
         item.dt = self.dt
+        item.particles = self.particle_number()
         item.t = self.history["time"][-1]
         item.iterations = len(self.history["time"])
-
+        item.record_interval = self.record_interval
         item.history = self.get_history()
         return item
 
     def apply_item(self, item : Simulation):
         self.id = item.id
         self.name = item.name
+        self.group_name = item.group_name
         self.start_time = item.start_time
         self.finish_time = item.finish_time
         
@@ -355,13 +359,19 @@ class SimulatorBase:
         
     def push_db(self):
         item = self.create_db_object()
-        self.id = self.client.push(item)
+        # self.id = self.client.push(item)
+        self.id = Client().push(item)
         return self.id
         
     def load(self, item : Simulation = None, id = None):
+        client = Client()
         if item is not None:
             self.apply_item(item)
         elif id is not None:
-            item = self.client.query_simulation(id)
+            item = client.query_simulation(id)
             self.apply_item(item)
+        elif self.id is not None:
+            item = client.query_simulation(self.id)
+            self.apply_item(item)
+            
         return self
