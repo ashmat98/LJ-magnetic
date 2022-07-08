@@ -216,7 +216,7 @@ class SimulatorBase:
     def to_array(dct):
         dct = dct.copy()
         for key, value in dct.items():
-            dct[key] = np.array(value)
+            dct[key] = np.array(value, dtype=np.float32)
         return dct
     
     @staticmethod
@@ -313,10 +313,10 @@ class SimulatorBase:
 
             if t - self.history["time"][-1] >= record_interval - dt/4:
                 self.history["time"].append(round(self.history["time"][-1]+record_interval, 6))
-                self.history["vs"].append(v.copy())
-                self.history["rs"].append(r.copy())
+                self.history["vs"].append(v.copy().astype(np.float32))
+                self.history["rs"].append(r.copy().astype(np.float32))
                 for key, value in self.other_metrics(r,v,t).items():
-                    self.history[key].append(value)
+                    self.history[key].append(value.astype(np.float32))
         
         self.finish_time = datetime.datetime.now()
         return self.history

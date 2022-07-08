@@ -18,7 +18,7 @@ class SimulatorMagnetic(SimulatorLennard):
         """
         Verlet algorithm with magnetic field
         """
-        dt, dt2 = self.dt, self.dt2
+        dt, dt2 = self.dt, self.dt2  # dt2 is dt^2
         a = self.last_a
         omega = self.Bz 
 
@@ -29,10 +29,10 @@ class SimulatorMagnetic(SimulatorLennard):
 
         inv_denom = 1 / (1 + 0.25 * omega**2 * dt2)
         v1[0, :] = (v1[0] + dt * omega * v[1] 
-            + 0.25 * dt2 * omega * (a[0] + a1[0] - omega * v[0])) * inv_denom
+            + 0.25 * dt2 * omega * (a[1] + a1[1] - omega * v[0])) * inv_denom
 
         v1[1, :] = (v1[1] - dt * omega * v[0] 
-            - 0.25 * dt2 * omega * (a[1] + a1[1] + omega * v[1])) * inv_denom
+            - 0.25 * dt2 * omega * (a[0] + a1[0] + omega * v[1])) * inv_denom
 
         self.last_a = a1
 
