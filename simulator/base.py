@@ -99,6 +99,15 @@ class SimulatorBase:
         IE = self.interaction_energy(r, v)
         return KE, PE, IE
 
+    def total_energy(self, r, v, KE=None, PE=None, IE=None):
+        KE1, PE1, IE1 = self.system_energy(r, v)
+        if KE is None:
+            KE = KE1
+        if PE is None:
+            PE = PE1
+        if IE is None:
+            IE = IE1
+        return (PE + KE + 0.5 * IE).sum()
 
     def estimmate_temperature(self, vs):
         raise NotImplementedError
@@ -177,7 +186,14 @@ class SimulatorBase:
         
         return r_init, v_init
     
-
+    def reorient_velocities(self):
+        for i in range(self.particle_number):
+            v = self.v_init[:, i]
+            v_mag = self.norm(v)
+            v_new = np.random.randn(3, N)
+            v_new = v_new / self.norm(v_new) * v_mag
+            self.v_init[:, i] = v_new
+        
     def rotational_push(self, p):
         for i in range(self.particle_number()):
             r, v = self.r_init[:, i], self.v_init[:, i]
@@ -277,7 +293,7 @@ class SimulatorBase:
             self.last_a = self.calc_acceleration(r, v, t)
 
     def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER"):
+        algorithm="EULER", before_step=None):
         """
         r,v,a,t: initial parameters oof the system
         box: size of the box
@@ -309,6 +325,8 @@ class SimulatorBase:
 
         for it in tqdm(range(int((iteration_time+self.EPS)/dt)), mininterval=1):
         #     r,v,a,t,dp = step_ideal(r, v,a, t)
+            if before_step is not None:
+                before_step(self, r, v, t)
             r,v,t = self.step(r, v, t)
 
             if t - self.history["time"][-1] >= record_interval - dt/4:
@@ -321,8 +339,8 @@ class SimulatorBase:
         self.finish_time = datetime.datetime.now()
         return self.history
     
-    def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER"):
-        self.simulate(iteration_time, dt, record_interval, algorithm)
+    def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER",before_step=None):
+        self.simulate(iteration_time, dt, record_interval, algorithm,before_step)
         id = self.push_db()
         self.id = id
         return id

@@ -103,3 +103,12 @@ class SimulatorLennard(SimulatorIdeal):
         self.sigma = item.sigma
         self.epsilon = item.epsilon
         
+    def volume_fraction(self, E=None):
+        if E is None:
+            E = self.total_energy(self.r_init, self.v_init)
+        N = self.particle_number()
+
+        r = self.sigma/2
+        particle_vol = 4*np.pi*r**3/3
+        potential_unit_volume = np.pi * np.prod(self.abc) * (2*E/N)**1.5
+        return (N * particle_vol) / potential_unit_volume
