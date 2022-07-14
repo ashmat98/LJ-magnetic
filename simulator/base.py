@@ -187,7 +187,7 @@ class SimulatorBase:
         return r_init, v_init
     
     def reorient_velocities(self):
-        for i in range(self.particle_number):
+        for i in range(self.particle_number()):
             v = self.v_init[:, i]
             v_mag = self.norm(v)
             v_new = np.random.randn(3, N)
