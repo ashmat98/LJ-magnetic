@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, Column, Table, ForeignKey, MetaData, engine
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import relationship,sessionmaker, session
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
@@ -7,14 +8,16 @@ from sqlalchemy.sql.expression import text
 import json
 
 Base = declarative_base()
-CONNECTION_STRING = "sqlite:///simulations.db"
+CONNECTION_STRING_SQLITE = "sqlite:///simulations.db"
+CONNECTION_STRING = 'postgresql://localhost:5432/lj_simulations'
+# CONNECTION_STRING = 'postgresql:///lj_simulations'
 
 def db_connect():
     """
     Performs database connection using database settings from settings.py.
     Returns sqlalchemy engine instance
     """
-    return create_engine(CONNECTION_STRING)
+    return create_engine(CONNECTION_STRING, poolclass=NullPool)
 
 
 def create_table(engine):
@@ -47,8 +50,11 @@ class Simulation(Base):
 
 
 class Client:
-    def __init__(self) -> None:
-        self.engine = create_engine(CONNECTION_STRING)
+    def __init__(self, disk=False) -> None:
+        if disk:
+            self.engine = create_engine(CONNECTION_STRING_SQLITE, poolclass=NullPool)    
+        else:
+            self.engine = create_engine(CONNECTION_STRING, poolclass=NullPool)
         self.Session = sessionmaker(bind=self.engine)
         create_table(self.engine)
 

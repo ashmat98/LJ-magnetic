@@ -10,8 +10,6 @@ class SimulatorLennard(SimulatorIdeal):
         self.sigma = sigma
         self.epsilon = epsilon
         
-        self.last_a = None
-
         self.load(id=id, item=item)
 
     def LJ_potential(self, r):

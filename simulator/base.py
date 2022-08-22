@@ -1,3 +1,4 @@
+from asyncio.log import logger
 import pickle
 
 import numpy as np
@@ -9,14 +10,18 @@ import os
 import datetime
 # from multiprocessing import Process, Queue
 from simulator.models import Client, Simulation
+from utils.logs import get_logger
+import logging
 
 class SimulatorBase:
-    def __init__(self, name=None, group_name=None, logger=None, 
+    def __init__(self, name=None, group_name=None, get_logger=None, 
         item=None, id=None, **kwargs):
 
         self.name = name
         self.group_name = group_name
-        self.logger = logger
+        self.get_logger = get_logger
+        if self.get_logger is None:
+            self.get_logger = logging.getLogger
 
         self.id = None
         self.dt = None
@@ -32,15 +37,14 @@ class SimulatorBase:
         self.finish_time = None
 
         # self.client = Client()
-        
+        self.step = None
+
         # temporary
         self.dt2 = None
         self.last_a = None
         self.process = None
 
         self.load(id=id, item=item)
-
-
 
     def norm(self, r):
         return np.sqrt(np.sum(r**2, axis=0))
@@ -190,7 +194,7 @@ class SimulatorBase:
         for i in range(self.particle_number()):
             v = self.v_init[:, i]
             v_mag = self.norm(v)
-            v_new = np.random.randn(3, N)
+            v_new = np.random.randn(3)
             v_new = v_new / self.norm(v_new) * v_mag
             self.v_init[:, i] = v_new
         
@@ -218,10 +222,6 @@ class SimulatorBase:
             omega = v_mag*r_mag/(r_mag**2 + self.EPS)
             v = v * (1-p) + p * np.array([-r[1]*omega,r[0]*omega,0])
             self.v_init[:, i] = v
-
-
-    def step(self, r,v,t):
-        raise NotImplementedError
 
     def other_metrics(self, r, v, t):
         return dict()
@@ -280,20 +280,23 @@ class SimulatorBase:
         )
 
     def step_VERLET(self, r, v, t):
+        if self.last_a is None:
+            self.last_a = self.calc_acceleration(r, v, t)
+
         v_half = v + 0.5 * self.last_a * self.dt
         r = r + v_half * self.dt
+        t = self.next_time(t)
         self.last_a = self.calc_acceleration(r, v, t)
         v = v_half + 0.5 * self.last_a * self.dt
-        return r, v, self.next_time(t)
+        return r, v, t
     
     def before_simulation(self, r, v, t, algorithm):
         if len(self.history["rs"]) == 1:
             self.start_time = datetime.datetime.now()
-        if algorithm == "VERLET":
-            self.last_a = self.calc_acceleration(r, v, t)
 
     def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, 
         algorithm="EULER", before_step=None):
+
         """
         r,v,a,t: initial parameters oof the system
         box: size of the box
@@ -303,6 +306,7 @@ class SimulatorBase:
         record_interval: interval of recording the state of the system 
         """    
 
+        logger = self.get_logger()
 
         self.dt = dt
         self.dt2 = dt * dt
@@ -323,10 +327,13 @@ class SimulatorBase:
         self.before_simulation(r,v,t, algorithm)
         self.update_step_function(algorithm)
 
+        logger.info(f"starting simulation {self.name} {self.group_name}")
+
         for it in tqdm(range(int((iteration_time+self.EPS)/dt)), mininterval=1):
         #     r,v,a,t,dp = step_ideal(r, v,a, t)
             if before_step is not None:
                 before_step(self, r, v, t)
+
             r,v,t = self.step(r, v, t)
 
             if t - self.history["time"][-1] >= record_interval - dt/4:
@@ -340,9 +347,20 @@ class SimulatorBase:
         return self.history
     
     def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER",before_step=None):
-        self.simulate(iteration_time, dt, record_interval, algorithm,before_step)
-        id = self.push_db()
-        self.id = id
+        logger = self.get_logger()
+        try:
+            self.simulate(iteration_time, dt, record_interval, algorithm,before_step)
+        except Exception as e:
+            logger.exception("exception in simulation")
+            raise
+
+        try:
+            id = self.push_db()
+            self.id = id
+        except Exception as e:
+            logger.exception("exception in pushing into db")
+            raise
+        logger.info(f"simulation {self.name} {self.group_name} saved by id {id}")
         return id
 
     def create_db_object(self):
@@ -383,13 +401,18 @@ class SimulatorBase:
         
     def load(self, item : Simulation = None, id = None):
         client = Client()
-        if item is not None:
-            self.apply_item(item)
-        elif id is not None:
-            item = client.query_simulation(id)
-            self.apply_item(item)
-        elif self.id is not None:
-            item = client.query_simulation(self.id)
-            self.apply_item(item)
-            
+        try:
+            if item is not None:
+                self.apply_item(item)
+            elif id is not None:
+                item = client.query_simulation(id)
+                self.apply_item(item)
+            elif self.id is not None:
+                item = client.query_simulation(self.id)
+                self.apply_item(item)
+        except Exception as e:
+            logger = self.get_logger()
+            logger.exception("Exception in loading item from db")
+            raise
+
         return self

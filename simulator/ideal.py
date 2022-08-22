@@ -12,26 +12,27 @@ class SimulatorIdeal(SimulatorBase):
         self.eccentricity = eccentricity
         self.abc = abc
 
-        self.initialize()
+        self.init_potential_params()
 
         self.load(id=id, item=item)
 
-    def initialize(self):
-        if self.eccentricity is not None and self.R is not None:
+    def init_potential_params(self):
+        if self.abc is not None:
+            self.Rz = self.abc[2]
+            self.R = (self.abc[1]**2 + self.abc[0]**2)**0.5
+            if (self.abc[1]/self.abc[0])<1:
+                self.eccentricity = np.sqrt(1-(self.abc[1]/self.abc[0])**2)
+        
+        elif self.eccentricity is not None and self.R is not None:
             self.abc =  np.array(
                     [self.R / (1-self.eccentricity**2)**(1/4),
                     self.R * (1-self.eccentricity**2)**(1/4),
                     self.Rz]
                 )
-        elif self.abc is not None:
-            self.Rz = self.abc[2]
-            self.R = (self.abc[1]**2 + self.abc[0]**2)**0.5
-            self.eccentricity = np.sqrt(1-(self.abc[1]/self.abc[0])**2)
-
+        
         if self.abc is not None:
             self.abc_inv_square = self.abc ** (-2)
-        self.step = None
-        self.last_a = None
+        
 
     def external_potential(self, r):
         r_sq = np.power(r,2)
@@ -57,7 +58,7 @@ class SimulatorIdeal(SimulatorBase):
     def apply_item(self, item: Simulation):
         super().apply_item(item)
         self.abc = np.array([item.a, item.b, item.c])
-        self.initialize()
+        self.init_potential_params()
         
     def create_db_object(self):
         item : Simulation = super().create_db_object()
