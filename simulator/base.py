@@ -1,5 +1,6 @@
 from asyncio.log import logger
 import pickle
+from selectors import EpollSelector
 
 import numpy as np
 import pandas as pd
@@ -92,6 +93,9 @@ class SimulatorBase:
 
     def angular_momentum(self, r, v):
         return np.cross(r.T, v.T).T
+    
+    def moment_of_inertia_z(self, r, v):
+        return np.square(self.norm(r[:2]))
 
     def angular_velocity(self, r, v):
         return np.cross(r.T, v.T).T / (self.EPS + np.sum(r**2, axis=0))
@@ -160,6 +164,62 @@ class SimulatorBase:
     def next_time(self, t):
         return round(t+self.dt, 7)
 
+    def init_positions_closepack(self, energy, sigma_grid,
+        position_random_shift_percentage, planar, **kwargs):
+
+        v1=np.array([0.5*np.sqrt(3),0.5,0])
+        v2=np.array([0.5*np.sqrt(3),-0.5,0])
+        v3=np.array([np.sqrt(1/3),0,np.sqrt(2/3)])
+        
+        bounds = np.sqrt(energy * 2 * self.abc**2)
+        if planar:
+            bounds[2] = self.EPS
+        n3 = round(1+bounds[2]/v3[2])
+        n1=n2=round(max(bounds[0],bounds[1])*2+1)
+
+        def helper(x):
+            return np.concatenate([-x[::-1][:-1], x])
+        grid_points = [helper(np.arange(0, bnd)) for bnd in np.array([n1,n2,n3])/sigma_grid]
+        integer_points = np.stack(np.meshgrid(*grid_points)).reshape(3,-1)
+        points = sigma_grid * np.array([v1,v2,v3]).T.dot(integer_points)
+        
+    #     r_init = points
+        r_init = points[:, self.external_potential(points) < energy]
+
+        shift_eps=max(0,(sigma_grid-self.sigma)*0.5*position_random_shift_percentage)
+        r_init += np.random.uniform(-shift_eps,shift_eps, r_init.shape)
+        self.r_init = r_init
+        return r_init
+
+    def L_given_E_constraint(self,energy):
+        N = self.particle_number()
+        
+        P0 = (self.external_potential_energy(self.r_init, None).sum() 
+            + 0.5*self.interaction_energy(self.r_init, None).sum())
+        E1 = N * energy - P0
+        I0 = self.moment_of_inertia_z(self.r_init,None).sum()
+        return np.sqrt(2*I0*E1), E1
+
+    def init_velocities(self, energy, angular_momentum, **kwargs):
+        self.v_init = np.random.randn(*self.r_init.shape)
+
+        E0 = self.kinetic_energy(None, self.v_init).sum()
+        I0 = self.moment_of_inertia_z(self.r_init, None).sum()
+        L0 = self.angular_momentum(self.r_init, self.v_init)[-1].sum()
+        L1 = angular_momentum
+        L1_max, E1 = self.L_given_E_constraint(energy)
+        assert L1_max > L1
+
+        alpha1 = -(np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2))
+        omega1 = ((-2*E1*I0*L0 + L0*L1**2 - (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) + 
+            (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
+        alpha2 = np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2) 
+        omega2 = ((-2*E1*I0*L0 + L0*L1**2 + (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) - 
+            (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
+        omega2 = (-L0 + (np.sqrt(2*E0*I0 - L0**2)*L1)/np.sqrt(2*E1*I0 - L1**2))/I0
+        self.v_init = alpha2 * (self.v_init + np.cross([0,0,omega2],self.r_init.T).T)
+        return self.r_init, self.v_init
+
     def init_positions_velocities(self, energy, sigma_grid, 
         position_random_shift_percentage, planar, zero_momentum, **kwargs):
         def helper(x):
@@ -225,8 +285,6 @@ class SimulatorBase:
 
     def other_metrics(self, r, v, t):
         return dict()
-    
-
 
     @staticmethod
     def to_array(dct):
@@ -400,14 +458,15 @@ class SimulatorBase:
         return self.id
         
     def load(self, item : Simulation = None, id = None):
-        client = Client()
-        try:
+        try:            
             if item is not None:
                 self.apply_item(item)
             elif id is not None:
+                client = Client()
                 item = client.query_simulation(id)
                 self.apply_item(item)
             elif self.id is not None:
+                client = Client()
                 item = client.query_simulation(self.id)
                 self.apply_item(item)
         except Exception as e:
