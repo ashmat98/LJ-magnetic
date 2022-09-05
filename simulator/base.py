@@ -1,4 +1,5 @@
 from asyncio.log import logger
+from code import interact
 import pickle
 from selectors import EpollSelector
 
@@ -30,6 +31,9 @@ class SimulatorBase:
         self.history_arr = None
         self.r_init = None
         self.v_init = None
+        self.collision_state = None
+        self.collision_count = 0
+
 
         self.EPS = 1e-8
         self.record_interval = None
@@ -44,6 +48,9 @@ class SimulatorBase:
         self.dt2 = None
         self.last_a = None
         self.process = None
+        
+        self.last_r_diff = None
+        self.last_r_dist = None
 
         self.load(id=id, item=item)
 
@@ -63,6 +70,8 @@ class SimulatorBase:
             np.fill_diagonal(D[0], np.nan)
             np.fill_diagonal(D[1], np.nan)
             np.fill_diagonal(D[2], np.nan)
+
+        self.last_r_diff = D
 
         return D
 
@@ -91,7 +100,7 @@ class SimulatorBase:
     def interaction_energy(self, r, v):
         raise NotImplementedError
 
-    def angular_momentum(self, r, v):
+    def angular_momentum(self, r, v) -> np.ndarray:
         return np.cross(r.T, v.T).T
     
     def moment_of_inertia_z(self, r, v):
@@ -99,7 +108,6 @@ class SimulatorBase:
 
     def angular_velocity(self, r, v):
         return np.cross(r.T, v.T).T / (self.EPS + np.sum(r**2, axis=0))
-
 
     def system_energy(self, r, v):
         KE = self.kinetic_energy(r, v)
@@ -205,10 +213,10 @@ class SimulatorBase:
 
         E0 = self.kinetic_energy(None, self.v_init).sum()
         I0 = self.moment_of_inertia_z(self.r_init, None).sum()
-        L0 = self.angular_momentum(self.r_init, self.v_init)[-1].sum()
+        L0 = np.sum(self.angular_momentum(self.r_init, self.v_init)[-1])
         L1 = angular_momentum
         L1_max, E1 = self.L_given_E_constraint(energy)
-        assert L1_max > L1
+        # assert L1_max > L1
 
         alpha1 = -(np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2))
         omega1 = ((-2*E1*I0*L0 + L0*L1**2 - (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) + 
@@ -348,6 +356,9 @@ class SimulatorBase:
         v = v_half + 0.5 * self.last_a * self.dt
         return r, v, t
     
+    def collision_update(self, r):
+        pass
+
     def before_simulation(self, r, v, t, algorithm):
         if len(self.history["rs"]) == 1:
             self.start_time = datetime.datetime.now()
@@ -369,6 +380,7 @@ class SimulatorBase:
         self.dt = dt
         self.dt2 = dt * dt
         self.record_interval = record_interval
+        self.collision_state = np.zeros((self.particle_number(),self.particle_number()), dtype=int)
 
         if self.history is None:
             self.history = defaultdict(list)
@@ -393,6 +405,7 @@ class SimulatorBase:
                 before_step(self, r, v, t)
 
             r,v,t = self.step(r, v, t)
+            self.collision_update(r)
 
             if t - self.history["time"][-1] >= record_interval - dt/4:
                 self.history["time"].append(round(self.history["time"][-1]+record_interval, 6))

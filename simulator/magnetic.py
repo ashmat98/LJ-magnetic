@@ -25,8 +25,11 @@ class SimulatorMagnetic(SimulatorLennard):
         a = self.last_a
         omega = self.Bz 
 
-        r1 = (r + v * dt + 0.5 * a * dt2 
-            + 0.5 * dt2 * omega * np.cross(v[:2].T,[0,0,1]).T)
+        r1 = (r + v * dt + 0.5 * a * dt2 )
+            # + 0.5 * dt2 * omega * np.cross(v[:2].T,[0,0,1]).T)
+        r1[0, :] += 0.5 * dt2 * omega * v[1,:]
+        r1[1, :] -= 0.5 * dt2 * omega * v[0,:]
+        
         a1 = self.calc_acceleration(r1, np.nan, np.nan)
         v1 = v + 0.5 * (a + a1) * dt
 

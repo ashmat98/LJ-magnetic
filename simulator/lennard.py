@@ -18,6 +18,7 @@ class SimulatorLennard(SimulatorIdeal):
         diff = self.calc_diff(r, with_nan=True)
         dist = self.norm(diff)
         
+
         one_over_r_power6 = 1/((dist) ** (6))
         one_over_r_power12 = one_over_r_power6 ** 2
         
@@ -54,7 +55,8 @@ class SimulatorLennard(SimulatorIdeal):
 
         diff = self.calc_diff(r, with_nan=True)
         dist = self.norm(diff)
-        
+        self.last_r_dist = dist
+
         one_over_r_power6 = (dist) ** (-6)
         one_over_r_power12 = one_over_r_power6 ** 2
         
@@ -79,7 +81,8 @@ class SimulatorLennard(SimulatorIdeal):
                 "PE": self.external_potential_energy(r,v),
                 "IE": self.interaction_energy(r,v),
                 "L" : self.angular_momentum(r, v),
-                "OMEGA": self.angular_velocity(r, v)
+                "OMEGA": self.angular_velocity(r, v),
+                "collisions": self.collision_count
         }
 
     def dump_dict(self):
@@ -110,3 +113,19 @@ class SimulatorLennard(SimulatorIdeal):
         particle_vol = 4*np.pi*r**3/3
         potential_unit_volume = np.pi * np.prod(self.abc) * (2*E/N)**1.5
         return (N * particle_vol) / potential_unit_volume
+
+    def collision_update(self, r):
+        dist = self.last_r_dist
+        # diff = self.calc_diff(r, with_nan=True)
+        # dist = self.norm(diff)
+        # dist = self.calc_dist(r)
+        coll = (dist < 1.122).astype(int)
+        # print(np.sum(coll))
+        self.collision_count += np.sum((self.collision_state ^ coll) & self.collision_state)
+        self.collision_state = coll
+        # print(self.last_r_dist)
+        # 1 -> 0  1
+        # 1 -> 1  0
+        # 0 -> 1  0
+        # 0 -> 0  0        
+        
