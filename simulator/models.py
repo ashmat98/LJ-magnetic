@@ -54,7 +54,6 @@ class Simulation(Base):
     history = Column(PickleType)
     hash = Column(Text)
 
-
 class Client:
     def __init__(self, disk=False) -> None:
         if disk:
