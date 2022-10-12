@@ -1,6 +1,7 @@
 from asyncio.log import logger
 from code import interact
 from selectors import EpollSelector
+import time
 
 import numpy as np
 import pandas as pd
@@ -25,8 +26,8 @@ class SimulatorBase:
         self.history_arr = None
         self.r_init = None
         self.v_init = None
-        self.collision_state = None
-        self.collision_count = 0
+        self.collision_state = dict()
+        self.collision_count = dict()
 
 
         self.EPS = 1e-8
@@ -34,7 +35,6 @@ class SimulatorBase:
         
         self.start_time = None
         self.finish_time = None
-
         # self.client = Client()
         self.step = None
 
@@ -147,9 +147,7 @@ class SimulatorBase:
             self.record_interval = kwargs["record_interval"]
         index = np.arange(0,len(self.history["rs"]))* self.record_interval
         dframes = dict()
-        dframes["L"] = pd.DataFrame(self.get_history()["L"][:,2,:], index=index)
-        for key in ['KE', 'PE', 'IE', 'BInertia']:
-            dframes[key] = pd.DataFrame(self.get_history()[key], index=index)
+        dframes["index"] = index
         return dframes
     
     def set_history(self, history):
@@ -200,7 +198,13 @@ class SimulatorBase:
         I0 = self.moment_of_inertia_z(self.r_init,None).sum()
         return np.sqrt(2*I0*E1), E1
 
-    def init_velocities(self, energy, angular_momentum, **kwargs):
+    def init_velocities(self, energy, angular_momentum=None, angular_momentum_factor=None,**kwargs):
+
+        if angular_momentum_factor is not None:
+            angular_momentum = self.L_given_E_constraint(energy)[0]*angular_momentum_factor
+        if angular_momentum is None:
+            raise Exception("Angular momentum is not provided")
+
         self.v_init = np.random.randn(*self.r_init.shape)
 
         E0 = self.kinetic_energy(None, self.v_init).sum()
@@ -208,7 +212,7 @@ class SimulatorBase:
         L0 = np.sum(self.angular_momentum(self.r_init, self.v_init)[-1])
         L1 = angular_momentum
         L1_max, E1 = self.L_given_E_constraint(energy)
-        # assert L1_max > L1
+        assert L1_max > L1
 
         alpha1 = -(np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2))
         omega1 = ((-2*E1*I0*L0 + L0*L1**2 - (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) + 
@@ -218,7 +222,7 @@ class SimulatorBase:
             (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
         omega2 = (-L0 + (np.sqrt(2*E0*I0 - L0**2)*L1)/np.sqrt(2*E1*I0 - L1**2))/I0
         self.v_init = alpha2 * (self.v_init + np.cross([0,0,omega2],self.r_init.T).T)
-        return self.r_init, self.v_init
+        return self.r_init, self.v_init, E1
 
     def init_positions_velocities(self, energy, sigma_grid, 
         position_random_shift_percentage, planar, zero_momentum, **kwargs):
@@ -348,6 +352,11 @@ class SimulatorBase:
         v = v_half + 0.5 * self.last_a * self.dt
         return r, v, t
     
+    def collision_init(self):
+        for k in [1,1.061,1.122]:
+            self.collision_state[k] = np.zeros((self.particle_number(),self.particle_number()), dtype=int)
+            self.collision_count[k] = 0
+
     def collision_update(self, r):
         pass
 
@@ -372,7 +381,7 @@ class SimulatorBase:
         self.dt = dt
         self.dt2 = dt * dt
         self.record_interval = record_interval
-        self.collision_state = np.zeros((self.particle_number(),self.particle_number()), dtype=int)
+        self.collision_init()
 
         if self.history is None:
             self.history = defaultdict(list)
@@ -385,13 +394,17 @@ class SimulatorBase:
         r = self.history["rs"][-1].copy()
         v = self.history["vs"][-1].copy()
         t = self.history["time"][-1]
+        for _key, _val in zip(self.collision_count, self.history["collisions"][-1]):
+            self.collision_count[_key] = _val
+
 
         self.before_simulation(r,v,t, algorithm)
         self.update_step_function(algorithm)
 
         logger.info(f"starting simulation {self.name} {self.group_name}")
 
-        for it in tqdm(range(int((iteration_time+self.EPS)/dt)), mininterval=1):
+        for it in tqdm(range(int((iteration_time+self.EPS)/dt)), 
+                    mininterval=1, disable=not self.verbose):
         #     r,v,a,t,dp = step_ideal(r, v,a, t)
             if before_step is not None:
                 before_step(self, r, v, t)

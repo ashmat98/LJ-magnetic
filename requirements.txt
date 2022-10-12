@@ -3,6 +3,7 @@ pandas
 tqdm
 matplotlib
 sqlalchemy
+scikit-learn
 h5py
 coverage
 nose

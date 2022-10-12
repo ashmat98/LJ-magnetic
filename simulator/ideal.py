@@ -1,6 +1,7 @@
 import numpy as np
 from simulator.baseIO import SimulatorBaseIO
 from simulator.models import Simulation
+import pandas as pd
 
 class SimulatorIdeal(SimulatorBaseIO):
     def __init__(self, R=None, Rz=None, eccentricity=None, abc=None, **kwargs):
@@ -54,6 +55,12 @@ class SimulatorIdeal(SimulatorBaseIO):
         return {"KE": self.kinetic_energy(r,v), 
                 "PE": self.external_potential_energy(r,v)
         }
+
+    def get_data_frames(self, **kwargs):
+        dframes = super().get_data_frames(**kwargs)
+        for key in ['KE', 'PE']:
+            dframes[key] = pd.DataFrame(self.get_history()[key], index=dframes["index"])
+        return dframes
 
     def apply_item(self, item: Simulation):
         super().apply_item(item)

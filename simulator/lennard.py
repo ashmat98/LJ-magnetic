@@ -1,4 +1,4 @@
-from signal import Sigmasks
+import pandas as pd
 import numpy as np
 from simulator.ideal import SimulatorIdeal
 from simulator.models import Simulation
@@ -79,21 +79,34 @@ class SimulatorLennard(SimulatorIdeal):
                 + self.external_force(r))
 
     def other_metrics(self, r, v, t):
-        return {"KE": self.kinetic_energy(r,v), 
-                "PE": self.external_potential_energy(r,v),
-                "IE": self.interaction_energy(r,v),
-                "L" : self.angular_momentum(r, v),
-                "OMEGA": self.angular_velocity(r, v),
-                "collisions": self.collision_count
-        }
+        metrics = super().other_metrics(r,v,t)
 
-    def dump_dict(self):
-        data = super().dump_dict()
-        data.update({
-            "sigma" : self.sigma,
-            "epsilon" : self.epsilon
-            })
-        return data
+        metrics.update({
+            "IE": self.interaction_energy(r,v),
+            "L" : self.angular_momentum(r, v),
+            "OMEGA": self.angular_velocity(r, v),
+            "collisions": np.array(list(self.collision_count.values()))})
+        return metrics
+    
+    def get_data_frames(self, **kwargs):
+        dframes = super().get_data_frames(**kwargs)
+
+        index = dframes["index"]
+        dframes["L"] = pd.DataFrame(self.get_history()["L"][:,2,:], index=index)
+        
+        for key in ['IE']:
+            dframes[key] = pd.DataFrame(self.get_history()[key], index=index)
+        dframes["collisions"] = pd.DataFrame(self.get_history()["collisions"],
+            columns=self.collision_state.keys(), index=index)
+        return dframes
+
+    # def dump_dict(self):
+    #     data = super().dump_dict()
+    #     data.update({
+    #         "sigma" : self.sigma,
+    #         "epsilon" : self.epsilon
+    #         })
+    #     return data
     
     def create_item(self):
         item : Simulation = super().create_item()
@@ -121,10 +134,12 @@ class SimulatorLennard(SimulatorIdeal):
         # diff = self.calc_diff(r, with_nan=True)
         # dist = self.norm(diff)
         # dist = self.calc_dist(r)
-        coll = (dist < 1.122).astype(int)
-        # print(np.sum(coll))
-        self.collision_count += np.sum((self.collision_state ^ coll) & self.collision_state)
-        self.collision_state = coll
+        for k, state in self.collision_state.items():
+            coll = (dist < k).astype(int)
+            # print(np.sum(coll))
+            self.collision_count[k] += np.sum((state ^ coll) & state)
+            self.collision_state[k] = coll
+
         # print(self.last_r_dist)
         # 1 -> 0  1
         # 1 -> 1  0

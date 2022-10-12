@@ -1,2 +1,2 @@
-python -m cProfile -o /tmp/tmp.prof ./for_profiling.py
+python -m cProfile -o /tmp/tmp.prof ./test.py
 snakeviz /tmp/tmp.prof 

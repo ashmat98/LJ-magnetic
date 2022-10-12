@@ -1,6 +1,7 @@
 import numpy as np
 from simulator.lennard import SimulatorLennard
 from simulator.models import Simulation
+import pandas as pd
 
 class SimulatorMagnetic(SimulatorLennard):
     def __init__(self, Bz=None, **kwargs):
@@ -79,6 +80,11 @@ class SimulatorMagnetic(SimulatorLennard):
         metrics = super().other_metrics(r, v, t)
         metrics["BInertia"] = 0.5 * self.Bz * np.sum(r[:2]**2, axis=0)
         return metrics
+
+    def get_data_frames(self, **kwargs):
+        dframes = super().get_data_frames(**kwargs)
+        dframes["BInertia"] = pd.DataFrame(self.get_history()["BInertia"], index=dframes["index"])
+        return dframes
 
     def apply_loaded(self, data):
         super().apply_loaded(data)
