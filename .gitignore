@@ -1,6 +1,7 @@
 # My folders
 old/
 dumps/
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
