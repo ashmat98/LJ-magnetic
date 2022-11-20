@@ -1,6 +1,5 @@
 from asyncio.log import logger
 from code import interact
-import pickle
 from selectors import EpollSelector
 
 import numpy as np
@@ -11,23 +10,18 @@ import pickle
 import os
 import datetime
 # from multiprocessing import Process, Queue
-from simulator.models import Client, Simulation
+from simulator.models import Client, Client_HDF5, Simulation
 from utils.logs import get_logger
 import logging
+import os
+import hashlib
+
+
 
 class SimulatorBase:
-    def __init__(self, name=None, group_name=None, get_logger=None, 
-        item=None, id=None, **kwargs):
-
-        self.name = name
-        self.group_name = group_name
-        self.get_logger = get_logger
-        if self.get_logger is None:
-            self.get_logger = logging.getLogger
-
-        self.id = None
+    def __init__(self, **kwargs): 
         self.dt = None
-        self.history = None
+        self.history : dict = None
         self.history_arr = None
         self.r_init = None
         self.v_init = None
@@ -47,12 +41,10 @@ class SimulatorBase:
         # temporary
         self.dt2 = None
         self.last_a = None
-        self.process = None
         
         self.last_r_diff = None
         self.last_r_dist = None
 
-        self.load(id=id, item=item)
 
     def norm(self, r):
         return np.sqrt(np.sum(r**2, axis=0))
@@ -416,75 +408,3 @@ class SimulatorBase:
         
         self.finish_time = datetime.datetime.now()
         return self.history
-    
-    def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER",before_step=None):
-        logger = self.get_logger()
-        try:
-            self.simulate(iteration_time, dt, record_interval, algorithm,before_step)
-        except Exception as e:
-            logger.exception("exception in simulation")
-            raise
-
-        try:
-            id = self.push_db()
-            self.id = id
-        except Exception as e:
-            logger.exception("exception in pushing into db")
-            raise
-        logger.info(f"simulation {self.name} {self.group_name} saved by id {id}")
-        return id
-
-    def create_db_object(self):
-        item = Simulation()
-        item.name = self.name
-        item.group_name = self.group_name
-        item.start_time = self.start_time
-        item.finish_time = self.finish_time
-        item.L_init = self.angular_momentum(self.r_init, self.v_init)[2].sum()
-        item.E_init = sum(self.system_energy(self.r_init, self.v_init)).sum()
-        item.dt = self.dt
-        item.particles = self.particle_number()
-        item.t = self.history["time"][-1]
-        item.iterations = len(self.history["time"])
-        item.record_interval = self.record_interval
-        item.history = self.get_history()
-        return item
-
-    def apply_item(self, item : Simulation):
-        self.id = item.id
-        self.name = item.name
-        self.group_name = item.group_name
-        self.start_time = item.start_time
-        self.finish_time = item.finish_time
-        
-        self.history = self.to_list(item.history)
-        self.dt = item.dt
-        self.record_interval = item.record_interval
-        self.r_init = self.history["rs"][0]
-        self.v_init = self.history["vs"][0]
-        
-        
-    def push_db(self):
-        item = self.create_db_object()
-        # self.id = self.client.push(item)
-        self.id = Client().push(item)
-        return self.id
-        
-    def load(self, item : Simulation = None, id = None):
-        try:            
-            if item is not None:
-                self.apply_item(item)
-            elif id is not None:
-                client = Client()
-                item = client.query_simulation(id)
-                self.apply_item(item)
-            elif self.id is not None:
-                client = Client()
-                item = client.query_simulation(self.id)
-                self.apply_item(item)
-        except Exception as e:
-            logger = self.get_logger()
-            logger.exception("Exception in loading item from db")
-            raise
-
-        return self

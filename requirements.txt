@@ -3,3 +3,8 @@ pandas
 tqdm
 matplotlib
 sqlalchemy
+h5py
+coverage
+nose
+nose-cov
+psycopg2

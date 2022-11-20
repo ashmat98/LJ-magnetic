@@ -5,12 +5,14 @@ from simulator.models import Simulation
 
 class SimulatorLennard(SimulatorIdeal):
     def __init__(self, sigma=None, epsilon=None, **kwargs):
-        id, item = kwargs.pop("id", None), kwargs.pop("item", None)
+        load = kwargs.pop("load", False)
         super().__init__(**kwargs)
+
         self.sigma = sigma
         self.epsilon = epsilon
         
-        self.load(id=id, item=item)
+        if load:
+            self.load(**kwargs)
 
     def LJ_potential(self, r):
         r = r * (1 / self.sigma)
@@ -93,8 +95,8 @@ class SimulatorLennard(SimulatorIdeal):
             })
         return data
     
-    def create_db_object(self):
-        item : Simulation = super().create_db_object()
+    def create_item(self):
+        item : Simulation = super().create_item()
         item.sigma = self.sigma
         item.epsilon = self.epsilon
         return item

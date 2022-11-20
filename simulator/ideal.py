@@ -1,20 +1,20 @@
 import numpy as np
-from simulator.base import SimulatorBase
+from simulator.baseIO import SimulatorBaseIO
 from simulator.models import Simulation
 
-class SimulatorIdeal(SimulatorBase):
+class SimulatorIdeal(SimulatorBaseIO):
     def __init__(self, R=None, Rz=None, eccentricity=None, abc=None, **kwargs):
-        id = kwargs.pop("id", None)
-        item = kwargs.pop("item", None)
+        load = kwargs.pop("load", False)
         super().__init__(**kwargs)
+        
         self.R = R
         self.Rz = Rz
         self.eccentricity = eccentricity
         self.abc = abc
 
         self.init_potential_params()
-
-        self.load(id=id, item=item)
+        if load:
+            self.load(**kwargs)
 
     def init_potential_params(self):
         if self.abc is not None:
@@ -60,8 +60,8 @@ class SimulatorIdeal(SimulatorBase):
         self.abc = np.array([item.a, item.b, item.c])
         self.init_potential_params()
         
-    def create_db_object(self):
-        item : Simulation = super().create_db_object()
+    def create_item(self):
+        item : Simulation = super().create_item()
         item.eccentricity = self.eccentricity
         item.a, item.b, item.c = self.abc
         return item

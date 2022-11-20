@@ -4,10 +4,12 @@ from simulator.models import Simulation
 
 class SimulatorMagnetic(SimulatorLennard):
     def __init__(self, Bz=None, **kwargs):
-        id, item = kwargs.pop("id", None), kwargs.pop("item", None)
-        super().__init__(**kwargs)
+        load = kwargs.pop("load", False)
+        super().__init__(load=False, **kwargs)
         self.Bz = Bz
-        self.load(id=id, item=item)
+
+        if load:
+            self.load(**kwargs)
 
     
     def calc_acceleration(self, r, v, t):
@@ -82,8 +84,8 @@ class SimulatorMagnetic(SimulatorLennard):
         super().apply_loaded(data)
         self.Bz = data["Bz"]
     
-    def create_db_object(self):
-        item : Simulation = super().create_db_object()
+    def create_item(self):
+        item : Simulation = super().create_item()
         item.Bz = self.Bz
         return item
 
