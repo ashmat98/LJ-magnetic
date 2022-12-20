@@ -20,10 +20,13 @@ import hashlib
 
 
 class SimulatorBase:
-    def __init__(self, **kwargs): 
+    def __init__(self, verbose=True, **kwargs):
+
         self.dt = None
         self.history : dict = None
         self.history_arr = None
+        self.history_essential = None
+
         self.r_init = None
         self.v_init = None
         self.collision_state = dict()
@@ -44,6 +47,8 @@ class SimulatorBase:
         
         self.last_r_diff = None
         self.last_r_dist = None
+
+        self.verbose = verbose
 
 
     def norm(self, r):

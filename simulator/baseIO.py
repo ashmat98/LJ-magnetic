@@ -6,11 +6,13 @@ from simulator.settings import HDF5_PATH
 from utils.logs import get_logger
 import logging
 from simulator.base import SimulatorBase
+import time
+import numpy as np
 
 
 class SimulatorBaseIO(SimulatorBase):
     def __init__(self, name=None, group_name=None, get_logger=None, 
-        item = None, id=None, hdf5_path=None, **kwargs):
+        item = None, id=None, only_essential=None, hdf5_path=None, **kwargs):
         load = kwargs.pop("load", False)
         super().__init__(**kwargs)
         self.name = name
@@ -21,6 +23,8 @@ class SimulatorBaseIO(SimulatorBase):
 
         self.id = None
         self.process = None
+        
+        self.only_essential = only_essential
 
         if load:
             self.load(**kwargs)
@@ -29,6 +33,7 @@ class SimulatorBaseIO(SimulatorBase):
     def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER",before_step=None):
         logger = self.get_logger()
         try:
+            np.random.seed((os.getpid() * int(time.time())) % 123456789)
             self.simulate(iteration_time, dt, record_interval, algorithm,before_step)
         except Exception as e:
             logger.exception("exception in simulation")
@@ -43,7 +48,6 @@ class SimulatorBaseIO(SimulatorBase):
         logger.info(f"simulation {self.name} {self.group_name} saved by id {id}")
         return id
 
-
     def create_item(self):
         item = Simulation()
         item.name = self.name
@@ -57,8 +61,15 @@ class SimulatorBaseIO(SimulatorBase):
         item.t = self.history["time"][-1]
         item.iterations = len(self.history["time"])
         item.record_interval = self.record_interval
-        item.history = self.get_history()
+        
+        if self.only_essential is None:
+            item.history = self.get_history()
+        else:
+            item.history_essential = self.only_essential(self)
+
         item.hash = self.hash()
+
+        self.collision_init()
         return item
 
     def apply_item(self, item : Simulation):
@@ -71,6 +82,16 @@ class SimulatorBaseIO(SimulatorBase):
         self.record_interval = item.record_interval
         
         self.history = item.history
+        
+        #TODO: merge history and essential history
+        if item.history is not None:
+            self.history = self.to_list(item.history)
+            self.r_init = self.history["rs"][0]
+            self.v_init = self.history["vs"][0]
+
+        if item.history_essential is not None:
+            self.history_essential = item.history_essential
+
         if "hdf5" in item.history:
             self.history = Client_HDF5(
                 os.path.join(HDF5_PATH, item.history["hdf5"])).load_history()
@@ -80,6 +101,7 @@ class SimulatorBaseIO(SimulatorBase):
         self.v_init = self.history["vs"][0]
         
     def hash(self):
+        #TODO: use essentia. hostory too!
         hashable = (self.id, self.name, self.group_name, os.getpid(),
             self.start_time, self.finish_time, str(self.history["rs"]))
         hashable_str = tuple(str(x) for x in hashable)

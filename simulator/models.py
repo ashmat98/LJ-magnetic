@@ -51,8 +51,9 @@ class Simulation(Base):
     record_interval = Column(Float)
     t = Column(Float)
     iterations = Column(Integer)
-    history = Column(PickleType)
     hash = Column(Text)
+    history = Column(PickleType, nullable=True)
+    history_essential = Column(PickleType, nullable=True)
 
 class Client:
     def __init__(self, disk=False) -> None:
