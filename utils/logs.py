@@ -1,27 +1,32 @@
 import multiprocessing
 import logging
 import os
+import sys
 
 # from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 LOGLEVEL = logging.INFO
-
-
-def get_logger():
-    
-    formatter = logging.Formatter(
+formatter = logging.Formatter(
         "%(asctime)s - %(module)s - %(levelname)s - %(message)s [Process: %(process)d, %(filename)s:%(funcName)s(%(lineno)d)]"
     )
-    
-    # logger = logging.getLogger()
-    logger = multiprocessing.get_logger()
 
-
+def get_stdout_logger():
+    logger = logging.getLogger()
     if logger.handlers:
         return logger
 
-    # Use an absolute path to prevent file rotation trouble.
-    logfile = os.path.abspath("logs.log")
+    logger.setLevel(LOGLEVEL)
+    streamhandler = logging.StreamHandler(sys.stdout)
+
+    streamhandler.setLevel(LOGLEVEL)
+    streamhandler.setFormatter(formatter)
+    logger.addHandler(streamhandler)
+
+def get_logger():
+    # logger = logging.getLogger()
+    logger = multiprocessing.get_logger()
+    if logger.handlers:
+        return logger
 
     logger.setLevel(LOGLEVEL)
 
