@@ -3,6 +3,8 @@ import logging
 import os
 import sys
 
+from simulator.settings import LOG_FILE,LOG_PATH
+
 # from concurrent_log_handler import ConcurrentRotatingFileHandler
 
 LOGLEVEL = logging.INFO
@@ -34,7 +36,7 @@ def get_logger():
     # filehandler = ConcurrentRotatingFileHandler(
     #     logfile, mode="a", maxBytes=512 * 1024, backupCount=5, encoding="utf-8"
     # )
-    filehandler = logging.FileHandler('logs/simulation.log')
+    filehandler = logging.FileHandler(os.path.join(LOG_PATH,LOG_FILE))
 
     filehandler.setLevel(LOGLEVEL)
     filehandler.setFormatter(formatter)
