@@ -33,7 +33,6 @@ class SimulatorBaseIO(SimulatorBase):
     def simulate_async(self, iteration_time=1, dt=0.0005, record_interval=0.01, algorithm="EULER",before_step=None):
         logger = self.get_logger()
         try:
-            np.random.seed((os.getpid() * int(time.time())) % 123456789)
             self.simulate(iteration_time, dt, record_interval, algorithm,before_step)
         except Exception as e:
             logger.exception("exception in simulation")
@@ -83,22 +82,21 @@ class SimulatorBaseIO(SimulatorBase):
         
         self.history = item.history
         
+        if "hdf5" in self.history:
+            self.history = Client_HDF5(
+                os.path.join(HDF5_PATH, self.history["hdf5"])).load_history()
+        # self.history = self.to_list(self.history)
+
         #TODO: merge history and essential history
-        if item.history is not None:
-            self.history = self.to_list(item.history)
+        if self.history is not None:
+            self.history = self.to_list(self.history)
+
             self.r_init = self.history["rs"][0]
             self.v_init = self.history["vs"][0]
 
         if item.history_essential is not None:
             self.history_essential = item.history_essential
 
-        if "hdf5" in item.history:
-            self.history = Client_HDF5(
-                os.path.join(HDF5_PATH, item.history["hdf5"])).load_history()
-        self.history = self.to_list(self.history)
-
-        self.r_init = self.history["rs"][0]
-        self.v_init = self.history["vs"][0]
         
     def hash(self):
         #TODO: use essentia. hostory too!
@@ -125,6 +123,7 @@ class SimulatorBaseIO(SimulatorBase):
                 self.apply_item(item)
             elif id is not None:
                 item = Client().query_simulation(id)
+                print("AAAAA", item.history.keys())
                 self.apply_item(item)
             elif hdf5_path is not None:
                 item = Client_HDF5(hdf5_path).load()

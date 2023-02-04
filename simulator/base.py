@@ -21,6 +21,7 @@ import hashlib
 
 class SimulatorBase:
     def __init__(self, verbose=True, **kwargs):
+        np.random.seed((os.getpid() * int(time.time())) % 123456789)
 
         self.dt = None
         self.history : dict = None
@@ -48,7 +49,11 @@ class SimulatorBase:
         self.last_r_diff = None
         self.last_r_dist = None
 
+        self.get_logger = logging.getLogger
+        
         self.verbose = verbose
+
+
 
 
     def norm(self, r):
@@ -369,8 +374,8 @@ class SimulatorBase:
         if len(self.history["rs"]) == 1:
             self.start_time = datetime.datetime.now()
 
-    def simulate(self, iteration_time=1, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", before_step=None):
+    def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
+        algorithm="EULER", before_step=None, estimate=False):
 
         """
         r,v,a,t: initial parameters oof the system
@@ -380,6 +385,14 @@ class SimulatorBase:
         dt: time interval of the one step
         record_interval: interval of recording the state of the system 
         """    
+
+        # estimate memory usage in GB
+        if estimate:
+            return round(iteration_time/record_interval * 
+                ( self.particle_number() * (3 * 2 + 7) ) 
+                    * 4 / 1024**3, 2)
+                    
+        np.random.seed((os.getpid() * int(time.time())) % 123456789)
 
         logger = self.get_logger()
 
