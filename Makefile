@@ -1,4 +1,4 @@
-hash= $(shell ./utils/md5_hash.py requirements.txt ${HOSTNAME})
+hash= $(shell ./utils/md5_hash.py requirements.txt hots-${HOSTNAME})
 PYTHON_VERSION=3.7
 
 current_dir = $(shell pwd)

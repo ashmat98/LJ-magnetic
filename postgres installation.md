@@ -6,7 +6,7 @@ conda install -c anaconda postgresql
 Initialize database, start the server
 ```
 initdb -D ../pg_database
-pg_ctl -D ../pg_database -l ../pg_logfile.log start
+pg_ctl -D ../pg_database -l ../pg_logfile.log start -o "-F -p 54320" 
 ```
 
 To stop the database, run
