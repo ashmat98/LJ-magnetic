@@ -1,11 +1,5 @@
 import os
-from sqlalchemy import create_engine, Column, Table, ForeignKey, MetaData, engine
-from sqlalchemy.pool import NullPool
-from sqlalchemy.orm import relationship,sessionmaker, session
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import (
-    Integer, String, Date, DateTime, Float, Boolean, Text, PickleType, JSON )
-from sqlalchemy.sql.expression import text
+
 import json
 import h5py
 import numpy as np
@@ -13,9 +7,27 @@ import datetime
 
 from simulator.settings import HDF5_PATH
 
+from sqlalchemy import create_engine, Column, Table, ForeignKey, MetaData, engine, delete
+from sqlalchemy.pool import NullPool
+from sqlalchemy.orm import relationship, sessionmaker, session
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import (
+    Integer, String, Date, DateTime, Float, Boolean, Text, PickleType, JSON )
+from sqlalchemy.sql.expression import text
+from psycopg2.extensions import register_adapter, AsIs
+
+def addapt_numpy_float64(numpy_float64):
+    return AsIs(numpy_float64)
+def addapt_numpy_int64(numpy_int64):
+    return AsIs(numpy_int64)
+register_adapter(np.float64, addapt_numpy_float64)
+register_adapter(np.int64, addapt_numpy_int64)
+
+
+
 Base = declarative_base()
 CONNECTION_STRING_SQLITE = "sqlite:///simulations.db"
-CONNECTION_STRING = 'postgresql://localhost:5432/lj_simulations'
+CONNECTION_STRING = 'postgresql://localhost:54320/lj_simulations'
 # CONNECTION_STRING = 'postgresql:///lj_simulations'
 
 def db_connect():
@@ -67,7 +79,8 @@ class Client:
     def push(self, item : Simulation, link_hdf5=True):
         if link_hdf5:
             output_path = os.path.join(HDF5_PATH, f"{item.hash}.hdf5")
-            Client_HDF5(output_path).push(item)
+            if not os.path.exists(output_path):
+                Client_HDF5(output_path).push(item)
             item.history = {"hdf5" : item.hash + ".hdf5"}
         
         with self.Session() as sess:
@@ -90,6 +103,18 @@ class Client:
                 .order_by(Simulation.id).first())
 
         return item
+    
+    def remove_simulation(self, id):
+            
+        with self.Session() as sess:
+            if type(id) is int:
+                sql = delete(Simulation).where(Simulation.id==id)
+            else:
+                sql = delete(Simulation).where(Simulation.id.in_(id))
+            sess.execute(sql)
+            sess.commit()
+            
+
         
 """
         item.name = self.name
