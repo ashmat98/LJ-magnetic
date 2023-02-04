@@ -8,4 +8,4 @@ h5py
 coverage
 nose
 nose-cov
-psycopg2scikit-learn
+psycopg2
