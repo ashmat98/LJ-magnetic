@@ -67,6 +67,11 @@ class Simulation(Base):
     history = Column(PickleType, nullable=True)
     history_essential = Column(PickleType, nullable=True)
 
+    def load_history(self):
+        if "hdf5" in self.history:
+            self.history = Client_HDF5.load_history(
+                os.path.join(HDF5_PATH, self.history["hdf5"]))
+
 class Client:
     def __init__(self, disk=False) -> None:
         if disk:
@@ -89,23 +94,29 @@ class Client:
             sess.refresh(item)
             
         return item.id
-        
-    def query_last_simulation(self):
+
+    def query_last_simulation(self, full_load=True):
         with self.Session() as sess:
             item : Simulation = sess.query(Simulation).order_by(Simulation.start_time.desc()).first()
+        
+        if full_load:
+            item.load_history()
+
         return item
 
-    def query_simulation(self, id=-1):
+    def query_simulation(self, id=-1, full_load=True):
        
         with self.Session() as sess:
             item : Simulation = (sess.query(Simulation)
                 .where(Simulation.id>=id)
                 .order_by(Simulation.id).first())
+        
+        if full_load:
+            item.load_history()
 
         return item
     
     def remove_simulation(self, id):
-            
         with self.Session() as sess:
             if type(id) is int:
                 sql = delete(Simulation).where(Simulation.id==id)
@@ -166,14 +177,15 @@ class Client_HDF5:
             for key, value in item.history.items():
                 f.create_dataset(key, data=value)
 
-    def load_history(self):
-        with h5py.File(self.path, 'r') as f:
+    @staticmethod
+    def load_history(hdf5_path):
+        with h5py.File(hdf5_path, 'r') as f:
             history = dict()
             for key in f:
                 history[key] = np.array(f[key])
         return history
 
-    def load(self):
+    def load(self, full_load=True):
         item = Simulation()
         with h5py.File(self.path, 'r') as f:
             item.id = f.attrs.get("id")
@@ -201,7 +213,7 @@ class Client_HDF5:
             item.finish_time = datetime.datetime.fromtimestamp(
                 f.attrs.get("finish_time"))
 
-            item.history = dict()
-            for key in f:
-                item.history[key] = np.array(f[key])
+        if full_load:
+            item.history = self.load_history(self.path)
+
         return item

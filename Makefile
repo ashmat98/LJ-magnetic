@@ -4,6 +4,8 @@ PYTHON_VERSION=3.7
 current_dir = $(shell pwd)
 
 VENV ?= ./../.venv
+PG_PATH ?=../pg_database
+
 venv = ${VENV}/py${PYTHON_VERSION}-${hash}
 
 SHELL=bash
@@ -78,9 +80,9 @@ pg_setup:
 		conda install -c anaconda postgresql -y; \
 	fi
 
-	@-initdb -D ../pg_database  --username=ashmat
+	@-initdb -D ${PG_PATH} --username=ashmat
 	
-	@if ! [ -f ../pg_database/postmaster.pid ]; then \
+	@if ! [ -f ${PG_PATH}/postmaster.pid ]; then \
 		pg_ctl -o "-F -p ${pg_port}" -D ../pg_database \
 				-l ../pg_logfile.log start; \
 	fi
@@ -93,7 +95,7 @@ pg_setup:
 	@echo "    psql -d lj_simulations -U ashmat -h localhost -p ${pg_port}"
 
 pg_stop:
-	pg_ctl -D ../pg_database stop
+	pg_ctl -D ${PG_PATH}/pg_database stop
 
 
 connect:

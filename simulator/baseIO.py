@@ -83,10 +83,6 @@ class SimulatorBaseIO(SimulatorBase):
         
         self.history = item.history
         
-        if "hdf5" in self.history:
-            self.history = Client_HDF5(
-                os.path.join(HDF5_PATH, self.history["hdf5"])).load_history()
-        # self.history = self.to_list(self.history)
 
         #TODO: merge history and essential history
         if self.history is not None:
@@ -129,8 +125,9 @@ class SimulatorBaseIO(SimulatorBase):
                 item = Client_HDF5(hdf5_path).load()
                 self.apply_item(item)
             elif self.id is not None:
-                item = Client().query_simulation(self.id)
+                item = Client().query_simulation(self.id, full_load=True)
                 self.apply_item(item)
+
         except Exception as e:
             logger = self.get_logger()
             logger.exception("Exception in loading item from db")
