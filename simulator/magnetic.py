@@ -5,11 +5,11 @@ import pandas as pd
 
 class SimulatorMagnetic(SimulatorLennard):
     def __init__(self, Bz=None, **kwargs):
-        load = kwargs.pop("load", False)
-        super().__init__(load=False, **kwargs)
+        __load = kwargs.pop("__load", True)
+        super().__init__(__load=False, **kwargs)
         self.Bz = Bz
 
-        if load:
+        if __load:
             self.load(**kwargs)
 
     

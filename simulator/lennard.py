@@ -5,13 +5,13 @@ from simulator.models import Simulation
 
 class SimulatorLennard(SimulatorIdeal):
     def __init__(self, sigma=None, epsilon=None, **kwargs):
-        load = kwargs.pop("load", False)
+        __load = kwargs.pop("__load", False)
         super().__init__(**kwargs)
 
         self.sigma = sigma
         self.epsilon = epsilon
         
-        if load:
+        if __load:
             self.load(**kwargs)
 
     def LJ_potential(self, r):

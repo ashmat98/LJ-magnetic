@@ -5,7 +5,8 @@ import pandas as pd
 
 class SimulatorIdeal(SimulatorBaseIO):
     def __init__(self, R=None, Rz=None, eccentricity=None, abc=None, **kwargs):
-        load = kwargs.pop("load", False)
+        __load = kwargs.pop("__load", True)
+        
         super().__init__(**kwargs)
         
         self.R = R
@@ -14,7 +15,7 @@ class SimulatorIdeal(SimulatorBaseIO):
         self.abc = abc
 
         self.init_potential_params()
-        if load:
+        if __load:
             self.load(**kwargs)
 
     def init_potential_params(self):

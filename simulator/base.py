@@ -32,7 +32,7 @@ class SimulatorBase:
         self.v_init = None
         self.collision_state = dict()
         self.collision_count = dict()
-
+        self.collision_init()
 
         self.EPS = 1e-8
         self.record_interval = None
@@ -399,7 +399,6 @@ class SimulatorBase:
         self.dt = dt
         self.dt2 = dt * dt
         self.record_interval = record_interval
-        self.collision_init()
 
         if self.history is None:
             self.history = defaultdict(list)

@@ -13,7 +13,8 @@ import numpy as np
 class SimulatorBaseIO(SimulatorBase):
     def __init__(self, name=None, group_name=None, get_logger=None, 
         item = None, id=None, only_essential=None, hdf5_path=None, **kwargs):
-        load = kwargs.pop("load", False)
+        __load = kwargs.pop("__load", True)
+
         super().__init__(**kwargs)
         self.name = name
         self.group_name = group_name
@@ -26,7 +27,7 @@ class SimulatorBaseIO(SimulatorBase):
         
         self.only_essential = only_essential
 
-        if load:
+        if __load:
             self.load(**kwargs)
 
 
@@ -123,7 +124,6 @@ class SimulatorBaseIO(SimulatorBase):
                 self.apply_item(item)
             elif id is not None:
                 item = Client().query_simulation(id)
-                print("AAAAA", item.history.keys())
                 self.apply_item(item)
             elif hdf5_path is not None:
                 item = Client_HDF5(hdf5_path).load()
