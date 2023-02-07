@@ -28,7 +28,7 @@ def clean_unlinked_files(act=True):
     client = Client()
     removed = 0
     with client.Session() as sess:
-        for file in os.listdir(HDF5_PATH):
+        for file in tqdm(os.listdir(HDF5_PATH)):
             path = os.path.join(HDF5_PATH, file)
             _hash, ext = os.path.splitext(file)
             assert ext == ".hdf5"
@@ -43,11 +43,11 @@ def clean_unlinked_files(act=True):
     else:
         print("All files are linked.")
 
-def add_unlinked_files(act=True):
+def add_unlinked_files(act=True, delete_failed=False):
     client = Client()
     added = 0
     with client.Session() as sess:
-        for file in os.listdir(HDF5_PATH):
+        for file in tqdm(os.listdir(HDF5_PATH)):
             path = os.path.join(HDF5_PATH, file)
             _hash, ext = os.path.splitext(file)
             assert ext == ".hdf5"
@@ -55,10 +55,20 @@ def add_unlinked_files(act=True):
             c = sess.query(Simulation.id).where(Simulation.hash==_hash).count()
             if c ==0:
                 if act:
-                    item = Client_HDF5(path).load(full_load=False)
-                    Client().push(item, link_hdf5=True)
-
+                    try:
+                        item = Client_HDF5(path).load(full_load=False)
+                        Client().push(item, link_hdf5=True)
+                        
+                    except OSError as e:
+                        added -=1
+                        if delete_failed:
+                            os.remove(path)
+                            print(f"Corrupted {file} is deleted.")
+                        else:
+                            print(f"{file} is corrupted. ")
+                            print("   ", str(e))
                 added += 1
+                
     if added > 0:
         print(f"{added} unlinked hdf5 files " + ("sucsessfully added!" if act else "can be added."))
     else:
@@ -67,7 +77,7 @@ def add_unlinked_files(act=True):
 
 
 
-def add_results_to_db(path, clean_after=True, act=True):
+def add_results_to_db(path, clean_after=True, act=True, delete_failed=False):
     added = 0
     jobs = os.listdir(path)
     for job in tqdm(jobs):
@@ -83,17 +93,30 @@ def add_results_to_db(path, clean_after=True, act=True):
                 if act is False:
                     added += 1
                     continue
+                try:
+                    if clean_after:
+                        os.rename(hdf5_from, hdf5_to)
+                        item = Client_HDF5(hdf5_to).load(full_load=False)
 
-                if clean_after:
-                    os.rename(hdf5_from, hdf5_to)
-                    item = Client_HDF5(hdf5_to).load(full_load=False)
+                        Client().push(item, link_hdf5=True)
+                        shutil.rmtree(os.path.join(path, job))
+                    else:
+                        item = Client_HDF5(hdf5_from).load(full_load=True)
+                        Client().push(item)
+                    added += 1
 
-                    Client().push(item, link_hdf5=True)
-                    shutil.rmtree(os.path.join(path, job))
-                else:
-                    item = Client_HDF5(hdf5_from).load(full_load=True)
-                    Client().push(item)
-                added += 1
+                except OSError as e:
+                    if os.path.exists(hdf5_to):
+                        os.rename(hdf5_to, hdf5_from)
+                    if delete_failed:
+                        shutil.rmtree(os.path.join(path, job))
+                        print(f"Corrupted job {job} is deleted")
+                    else:
+                        print(f"Job {job} is corrupted.")
+                        print(f"  full path: {os.path.join(path, job)}")
+                        print("   ", str(e))
+
+                
 
                 
     print(f"{added} items " + ("can be " if not act else "") + "added to database.")
@@ -101,6 +124,9 @@ def add_results_to_db(path, clean_after=True, act=True):
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--act", action="store_true")
+    parser.add_argument("--delete-failed", action="store_true")
+    parser.add_argument("--delete", action="store_true", dest="delete_failed")
+
     parser.add_argument("--clean-unlinked-items", action='store_true')
     parser.add_argument("--clean-unlinked-files", action='store_true')
     parser.add_argument("--add-unlinked-files", action='store_true')
@@ -122,13 +148,15 @@ if __name__=="__main__":
         clean_unlinked_files(args.act)
     
     if args.add_unlinked_files:
-        add_unlinked_files(args.act)
+        add_unlinked_files(args.act, args.delete_failed)
 
     if args.move_results is not None:
-        add_results_to_db(args.move_results, clean_after=True, act=args.act)
+        add_results_to_db(args.move_results, clean_after=True, 
+            act=args.act, delete_failed=args.delete_failed)
     
     if args.copy_results is not None:
-        add_results_to_db(args.copy_results, clean_after=False, act=args.act)
+        add_results_to_db(args.copy_results, clean_after=False, 
+            act=args.act, delete_failed=args.delete_failed)
     
     if args.act is False:
-        print("Use argument --act to make changes")
+        print("\n  Use argument --act to make changes")
