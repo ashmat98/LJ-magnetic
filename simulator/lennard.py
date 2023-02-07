@@ -5,8 +5,8 @@ from simulator.models import Simulation
 
 class SimulatorLennard(SimulatorIdeal):
     def __init__(self, sigma=None, epsilon=None, **kwargs):
-        __load = kwargs.pop("__load", False)
-        super().__init__(**kwargs)
+        __load = kwargs.pop("__load", True)
+        super().__init__(__load=False, **kwargs)
 
         self.sigma = sigma
         self.epsilon = epsilon

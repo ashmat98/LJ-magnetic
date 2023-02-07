@@ -7,7 +7,7 @@ class SimulatorIdeal(SimulatorBaseIO):
     def __init__(self, R=None, Rz=None, eccentricity=None, abc=None, **kwargs):
         __load = kwargs.pop("__load", True)
         
-        super().__init__(**kwargs)
+        super().__init__(__load=False, **kwargs)
         
         self.R = R
         self.Rz = Rz
