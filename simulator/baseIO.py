@@ -86,13 +86,15 @@ class SimulatorBaseIO(SimulatorBase):
 
         #TODO: merge history and essential history
         if self.history is not None:
-            self.history = self.to_list(self.history)
+            # self.history = self.to_list(self.history)
 
             self.r_init = self.history["rs"][0]
             self.v_init = self.history["vs"][0]
 
         if item.history_essential is not None:
             self.history_essential = item.history_essential
+        
+        self.collision_init()
 
         
     def hash(self):
@@ -115,11 +117,11 @@ class SimulatorBaseIO(SimulatorBase):
         return self.id
         
     def load(self, item : Simulation = None, id = None, hdf5_path=None, **kwargs):
-        try:            
+        try:    
             if item is not None:
                 self.apply_item(item)
             elif id is not None:
-                item = Client().query_simulation(id)
+                item = Client().query_simulation(id, full_load=True)
                 self.apply_item(item)
             elif hdf5_path is not None:
                 item = Client_HDF5(hdf5_path).load()

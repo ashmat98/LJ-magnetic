@@ -17,6 +17,8 @@ import logging
 import os
 import hashlib
 
+from utils.utils import iteration_time_estimate, memory_estimate
+
 
 
 class SimulatorBase:
@@ -32,7 +34,6 @@ class SimulatorBase:
         self.v_init = None
         self.collision_state = dict()
         self.collision_count = dict()
-        self.collision_init()
 
         self.EPS = 1e-8
         self.record_interval = None
@@ -374,8 +375,15 @@ class SimulatorBase:
         if len(self.history["rs"]) == 1:
             self.start_time = datetime.datetime.now()
 
+    def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
+        algorithm="EULER", before_step=None):
+        return {
+            "time": iteration_time_estimate(self.particle_number())*iteration_time/dt,
+            "memory": memory_estimate(self.particle_number()) * iteration_time/ record_interval
+        }
+
     def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", before_step=None, estimate=False):
+        algorithm="EULER", before_step=None):
 
         """
         r,v,a,t: initial parameters oof the system
@@ -385,12 +393,6 @@ class SimulatorBase:
         dt: time interval of the one step
         record_interval: interval of recording the state of the system 
         """    
-
-        # estimate memory usage in GB
-        if estimate:
-            return round(iteration_time/record_interval * 
-                ( self.particle_number() * (3 * 2 + 7) ) 
-                    * 4 / 1024**3, 2)
                     
         np.random.seed((os.getpid() * int(time.time())) % 123456789)
 
@@ -399,7 +401,8 @@ class SimulatorBase:
         self.dt = dt
         self.dt2 = dt * dt
         self.record_interval = record_interval
-
+        self.collision_init()
+        
         if self.history is None:
             self.history = defaultdict(list)
             self.history["time"].append(0)
@@ -407,7 +410,9 @@ class SimulatorBase:
             self.history["vs"].append(self.v_init)
             for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
                     self.history[key].append(value)
-        
+        elif type(self.history["time"]) is not list:
+                self.history = self.to_list(self.history)
+            
         r = self.history["rs"][-1].copy()
         v = self.history["vs"][-1].copy()
         t = self.history["time"][-1]
