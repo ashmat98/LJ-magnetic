@@ -83,8 +83,8 @@ pg_setup:
 	@-initdb -D ${PG_PATH} --username=ashmat
 	
 	@if ! [ -f ${PG_PATH}/postmaster.pid ]; then \
-		pg_ctl -o "-F -p ${pg_port}" -D ../pg_database \
-				-l ../pg_logfile.log start; \
+		pg_ctl -o "-F -p ${pg_port}" -D ${PG_PATH} \
+				-l ${PG_PATH}/pg_logfile.log start; \
 	fi
 
 	@-createdb --port=${pg_port} --owner=ashmat lj_simulations
@@ -95,7 +95,7 @@ pg_setup:
 	@echo "    psql -d lj_simulations -U ashmat -h localhost -p ${pg_port}"
 
 pg_stop:
-	pg_ctl -D ${PG_PATH}/pg_database stop
+	pg_ctl -D ${PG_PATH} stop
 
 
 connect:
