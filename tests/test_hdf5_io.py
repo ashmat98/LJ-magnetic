@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import os
 from simulator.magnetic import SimulatorMagnetic
-from simulator.settings import HDF5_PATH
+from settings import HDF5_PATH
 
 params_model = {
     "R" : 1.0,
