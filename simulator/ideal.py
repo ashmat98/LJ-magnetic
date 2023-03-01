@@ -21,10 +21,9 @@ class SimulatorIdeal(SimulatorBaseIO):
     def init_potential_params(self):
         if self.abc is not None:
             self.Rz = self.abc[2]
-            self.R = (self.abc[1]**2 + self.abc[0]**2)**0.5
+            self.R = (0.5*self.abc[1]**2 + 0.5*self.abc[0]**2)**0.5
             if (self.abc[1]/self.abc[0])<1:
                 self.eccentricity = np.sqrt(1-(self.abc[1]/self.abc[0])**2)
-        
         elif self.eccentricity is not None and self.R is not None:
             self.abc =  np.array(
                     [self.R / (1-self.eccentricity**2)**(1/4),
