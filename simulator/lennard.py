@@ -98,6 +98,9 @@ class SimulatorLennard(SimulatorIdeal):
             dframes[key] = pd.DataFrame(self.get_history()[key], index=index)
         dframes["collisions"] = pd.DataFrame(self.get_history()["collisions"],
             columns=self.collision_state.keys(), index=index)
+        
+        dframes["Etotal"] = dframes["KE"] + dframes["PE"] + 0.5*dframes["IE"]
+
         return dframes
 
     # def dump_dict(self):
