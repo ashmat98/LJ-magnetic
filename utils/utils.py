@@ -28,7 +28,7 @@ def memory_estimate(n):
     memory needed for single record in MegaBytes
     n : particle number
     """
-    return (70 * n)
+    return (70 * n) / 1024**2
 
 def plot_mean_std(df, color, label):
     from matplotlib import pyplot as plt
