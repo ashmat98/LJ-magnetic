@@ -20,7 +20,7 @@ from tqdm.notebook import tqdm
 
 import sys, os, time
 params_model = {
-    "group_name" : "Ensemble 5.1",
+    "group_name" : "Ensemble 5",
     "R" : 1.0,
     "Rz" : 0.25,
     "Bz" : 0,
@@ -39,15 +39,14 @@ params_init = {
     "zero_momentum": False,
 }
 params_simulation = {
-    "iteration_time" : 2000,
-    "dt" : 1e-4,
+    "iteration_time" : 1000,
+    "dt" : 1e-3,
     "record_interval" : 1e-1,
     "algorithm" : "VERLET",
 #     "before_step" : before_step
 }
-# factor 20 to time
 
-sz = 40
+sz = 35
 grid = [x.flatten() for x in np.meshgrid(
     np.logspace(0.1, 10, sz),
     np.linspace(0,0.97,sz), 

@@ -6,8 +6,8 @@
 
 # Set max time to your time estimation for your program be as precise as possible
 # for optimal cluster utilization
-#SBATCH --time=0-40:00:00
-#SBATCH -p medium
+#SBATCH --time=0-9:00:00
+#SBATCH -p debug
 
 # The following partitions are available
 # debug	        10:00

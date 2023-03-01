@@ -1,22 +1,12 @@
 #!/bin/bash
 
 # configure job arrays, %A, %a, $SLURM_ARRAY_JOB_ID, $SLURM_ARRAY_TASK_ID are defined
-#SBATCH --array=0-4439
+#SBATCH --array=0-3009
 
 
 # Set max time to your time estimation for your program be as precise as possible
 # for optimal cluster utilization
-#SBATCH --time=0-40:00:00
-#SBATCH -p medium
-
-# The following partitions are available
-# debug	        10:00
-# short	        2:00:00	
-# medium	    2-00:00:00
-# long	        14-00:00:00
-# graphic	    2-00:00:00
-# extra_long	28-00:00:00
-
+#SBATCH --time=02:00:00
 
 #
 # There are a lot of ways to specify hardware ressources we recommend this one
@@ -59,13 +49,14 @@
 # You can utilize name expansion to make sure each job has a uniq output file if the file already exists 
 # Slurm will delete all the content that was there before before writing to this file so beware.
 
-#SBATCH --output=/data/biophys/ashmat/LJ-magnetic/outputs/task-%A_%a.out
-# #SBATCH --error=/data/biophys/ashmat/LJ-magnetic/outputs/task-%A_%a.err
+#SBATCH --output=/home/ashmat/cluster/outputs/task-%A_%a.out
+# #SBATCH --error=/home/ashmat/cluster/outputs/task-%A_%a.err
+# #SBATCH --output=/scratch/$USER/%j/results/output-%j.out
 
 
 # causes jobs to fail if one command fails - makes failed jobs easier to find with tools like sacct
 set -e
-set -x
+# set -x
 
 START=$(date +%s.%N)
 
@@ -74,26 +65,25 @@ START=$(date +%s.%N)
 # Set variables you need
 job_id=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
 
-data="/data/biophys/ashmat/LJ-magnetic"
-source=/home/ashmat/cluster/LJ-magnetic/source
+root="/home/ashmat/cluster/"
+project=$root/LJ-magnetic
 scratch="/scratch/$USER/$job_id"
 
 
 
 #Create your scratch space
-mkdir -p $data/results
-mkdir -p $data/results/$job_id
-
+mkdir -p $project/results
+mkdir -p $project/results/$job_id
 mkdir -p $scratch
-mkdir -p $scratch/results
 
 
 cd $scratch
 # Copy your program (and maybe input files if you need them)
-cp -r $source .
+cp -r $project/source .
+mkdir -p ./results
 cd ./source
 
-ln -s $data/outputs/task-$job_id.out $data/results/$job_id/stdout.txt
+ln -s $root/outputs/task-$job_id.out $project/results/$job_id/stdout.txt
 # ln -s $root/outputs/task-$SLURM_JOB_ID.err $project/results/$SLURM_JOB_ID/stderr.txt
 
 export HDF5_PATH=${scratch}/results
@@ -103,9 +93,10 @@ module load python-3.7.4
 make offline
 python tasks/beta_omega/run_simulation.py -i ${SLURM_ARRAY_TASK_ID}
 
+
 # copy results to an accessable location
 # only copy things you really need
-cp -Tr $scratch/results $data/results/$job_id 
+cp -Tr $scratch/results $project/results/$job_id 
 
 # Clean up after yourself
 cd

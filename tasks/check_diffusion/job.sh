@@ -1,12 +1,9 @@
 #!/bin/bash
 
-# configure job arrays, %A, %a, $SLURM_ARRAY_JOB_ID, $SLURM_ARRAY_TASK_ID are defined
-#SBATCH --array=0-4439
+#SBATCH --array=0-1000
 
+#SBATCH --time=0-5:00:00
 
-# Set max time to your time estimation for your program be as precise as possible
-# for optimal cluster utilization
-#SBATCH --time=0-40:00:00
 #SBATCH -p medium
 
 # The following partitions are available
@@ -75,7 +72,7 @@ START=$(date +%s.%N)
 job_id=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
 
 data="/data/biophys/ashmat/LJ-magnetic"
-source=/home/ashmat/cluster/LJ-magnetic/source
+source=/home/ashmat/cluster/LJ-magnetic/
 scratch="/scratch/$USER/$job_id"
 
 
@@ -90,7 +87,7 @@ mkdir -p $scratch/results
 
 cd $scratch
 # Copy your program (and maybe input files if you need them)
-cp -r $source .
+cp -r $source ./source
 cd ./source
 
 ln -s $data/outputs/task-$job_id.out $data/results/$job_id/stdout.txt
@@ -101,7 +98,7 @@ export LOG_PATH=${scratch}/results/
 
 module load python-3.7.4
 make offline
-python tasks/beta_omega/run_simulation.py -i ${SLURM_ARRAY_TASK_ID}
+python "tasks/beta_omega/ensemble 4/run_simulation.py" -i ${SLURM_ARRAY_TASK_ID}
 
 # copy results to an accessable location
 # only copy things you really need
