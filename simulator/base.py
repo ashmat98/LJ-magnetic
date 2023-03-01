@@ -1,5 +1,6 @@
 from asyncio.log import logger
 from code import interact
+import numbers
 from selectors import EpollSelector
 import time
 
@@ -10,9 +11,7 @@ from tqdm import tqdm
 import pickle
 import os
 import datetime
-# from multiprocessing import Process, Queue
 from simulator.models import Client, Client_HDF5, Simulation
-from utils.logs import get_logger
 import logging
 import os
 import hashlib
@@ -386,14 +385,16 @@ class SimulatorBase:
         algorithm="EULER", before_step=None):
 
         """
-        r,v,a,t: initial parameters oof the system
+        r,v,a,t: initial parameters of the system
         box: size of the box
         history: previous recordings, give if you wwant to continue simulation
         iteration_time: time to simulate
         dt: time interval of the one step
         record_interval: interval of recording the state of the system 
         """    
-                    
+        assert isinstance(iteration_time, numbers.Number)
+        assert isinstance(dt, numbers.Number)
+
         np.random.seed((os.getpid() * int(time.time())) % 123456789)
 
         logger = self.get_logger()

@@ -4,7 +4,7 @@ import os
 import shutil
 
 from simulator.models import Client, Client_HDF5, Client, Simulation
-from simulator.settings import HDF5_PATH, RESULT_PATH
+from settings import HDF5_PATH, RESULT_PATH
 from tqdm import tqdm
 
 

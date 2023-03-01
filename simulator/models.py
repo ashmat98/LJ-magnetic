@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import datetime
 
-from simulator.settings import HDF5_PATH
+from settings import HDF5_PATH
 
 from sqlalchemy import create_engine, Column, Table, ForeignKey, MetaData, engine, delete
 from sqlalchemy.pool import NullPool

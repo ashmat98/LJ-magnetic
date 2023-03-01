@@ -5,7 +5,8 @@ HDF5_PATH = "../hdf5s/"
 LOG_PATH = "../logs/"
 RESULT_PATH = "../results"
 
-if os.getenv("HOSTNAME") in ["newton", "vesta", "z2-26"]:
+if (os.getenv("HOSTNAME") in ["newton", "vesta", "z2-26"] 
+        and os.getenv("DATA") is not None):
     HDF5_PATH = os.path.join(os.getenv("DATA"),"LJ-magnetic", "hdf5s")
     LOG_PATH = os.path.join(os.getenv("DATA"),"LJ-magnetic", "logs")
     RESULT_PATH = os.path.join(os.getenv("DATA"),"LJ-magnetic", "results")

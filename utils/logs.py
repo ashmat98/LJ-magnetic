@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 
-from simulator.settings import LOG_FILE,LOG_PATH
+from settings import LOG_FILE,LOG_PATH
 
 # from concurrent_log_handler import ConcurrentRotatingFileHandler
 
@@ -23,6 +23,8 @@ def get_stdout_logger():
     streamhandler.setLevel(LOGLEVEL)
     streamhandler.setFormatter(formatter)
     logger.addHandler(streamhandler)
+
+    return logger
 
 def get_logger():
     # logger = logging.getLogger()
@@ -46,8 +48,6 @@ def get_logger():
     # ch.setLevel(LOGLEVEL)
     # ch.setFormatter(formatter)
     # logger.addHandler(ch)
-
-
     return logger
 
 

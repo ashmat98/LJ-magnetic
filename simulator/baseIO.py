@@ -2,8 +2,7 @@
 import hashlib
 import os
 from simulator.models import Client, Client_HDF5, Simulation
-from simulator.settings import HDF5_PATH
-from utils.logs import get_logger
+from settings import HDF5_PATH
 import logging
 from simulator.base import SimulatorBase
 import time
@@ -18,10 +17,10 @@ class SimulatorBaseIO(SimulatorBase):
         super().__init__(**kwargs)
         self.name = name
         self.group_name = group_name
-        self.get_logger = get_logger
-        if self.get_logger is None:
-            self.get_logger = logging.getLogger
 
+        if get_logger is not None:
+            self.get_logger = get_logger
+        
         self.id = None
         self.process = None
         
