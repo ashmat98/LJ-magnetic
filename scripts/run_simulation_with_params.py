@@ -1,5 +1,24 @@
 #!/usr/bin/env python
 
+"""
+Usefull code:
+
+from multiprocessing import Pool, cpu_count
+from tqdm import tqdm 
+from utils.utils import beep
+
+if "pool" in dir():
+    pool.close()
+    print("closed")
+pool = Pool(cpu_count(), maxtasksperchild=1); pool
+
+n_ = cpu_count()
+res = list(tqdm(pool.imap(f, range(n_)), total=n_))
+beep()
+
+"""
+
+
 import adddeps
 import argparse
 
@@ -8,6 +27,16 @@ from simulator.magnetic import SimulatorMagnetic
 
 import os, time
 import json
+
+from multiprocessing import Pool, cpu_count
+from tqdm import tqdm 
+from utils.utils import beep
+
+def multirunner(params, processes=-1):
+    pool = None #TODO: fix this
+    for (params_model, params_init, params_simulation) in params:
+        pass
+
 
 def runner(params_model, params_init, params_simulation):
     params_model["name"] = params_model.get("name", os.getenv("HOSTNAME"))

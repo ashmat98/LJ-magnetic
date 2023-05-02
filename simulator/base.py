@@ -376,8 +376,11 @@ class SimulatorBase:
 
     def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
         algorithm="EULER", before_step=None):
+        estimated_time = iteration_time_estimate(self.particle_number())*iteration_time/dt
+        estimated_time = datetime.timedelta(
+            seconds=int(estimated_time.total_seconds()))
         return {
-            "time": iteration_time_estimate(self.particle_number())*iteration_time/dt,
+            "time": estimated_time,
             "memory": memory_estimate(self.particle_number()) * iteration_time/ record_interval
         }
 

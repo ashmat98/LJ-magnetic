@@ -21,7 +21,7 @@ def iteration_time_estimate(n):
     time needed for single iteration.
     n : particle number
     """
-    return timedelta(seconds=1.1e-7 * np.maximum(5e3,  n**2)*1.1)
+    return timedelta(seconds=(1.1e-7 * np.maximum(5e3,  n**2)*1.1))
 
 def memory_estimate(n):
     """
