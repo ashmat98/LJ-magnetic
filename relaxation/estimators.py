@@ -24,7 +24,7 @@ class RelaxationFinder:
         self.rmsd = self.rmsd_method()
         self.rmsv = self.rmsv_method()
 
-    def summarize(self):
+    def summarize(self, stdout=False):
         summary = dict()
         summary.update(
             dict(zip(["col-1","col-1.06", "col-1.12"],self.collision))
@@ -37,6 +37,10 @@ class RelaxationFinder:
             "rmsd":self.rmsd,
             "rmsv":self.rmsv
             })
+        if stdout:
+           for key, value in summary.items():
+             print(f"{key+':':10} {value:0.3f}")
+
         return summary
 
     def collision_method(self):
