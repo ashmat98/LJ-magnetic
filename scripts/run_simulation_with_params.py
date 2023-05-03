@@ -30,22 +30,44 @@ import json
 
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm 
+from tqdm.notebook import tqdm as tqdm_notebook
+
 from utils.utils import beep
 
-def multirunner(params, processes=-1):
-    pool = None #TODO: fix this
-    for (params_model, params_init, params_simulation) in params:
-        pass
+def multirunner(params, callback=None, processes=-1, pool=None):
+    if processes == -1:
+        processes = cpu_count()
 
+    if pool is None:
+        pool = Pool(processes, maxtasksperchild=1)
 
-def runner(params_model, params_init, params_simulation):
+    new_params = []
+    for i, (params_model, params_init, params_simulation) in enumerate(params):
+        params_model = params_model.copy()
+        params_model["verbose"] = (i==0)
+        new_params.append((params_model, params_init, params_simulation, callback))
+        
+    res_generator = pool.imap(_runner, new_params[1:])
+    res = [_runner(new_params[0])]
+    res += list(tqdm_notebook(res_generator, total=len(new_params)-1))
+
+    return res
+
+def _runner(args):
+    return runner(*args)   
+
+def runner(params_model, params_init, params_simulation, callback=None):
     params_model["name"] = params_model.get("name", os.getenv("HOSTNAME"))
-    sim = SimulatorMagnetic(
-        name=os.getenv("HOSTNAME"),
-        **params_model)
+
+    sim = SimulatorMagnetic(**params_model)
+
     sim.init_positions_closepack(**params_init)
     sim.init_velocities(**params_init)
     sim.simulate(**params_simulation)
+
+    if callback is not None:
+        return callback(sim)
+    
     return sim.push_hdf5()
 
 if __name__ == "__main__":
