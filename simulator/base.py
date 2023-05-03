@@ -7,7 +7,7 @@ import time
 import numpy as np
 import pandas as pd
 from collections import defaultdict
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import pickle
 import os
 import datetime

@@ -14,8 +14,7 @@ class SimulatorMagnetic(SimulatorLennard):
 
     
     def calc_acceleration(self, r, v, t):
-        return (np.sum(self.LJ_force(r), axis = 2) 
-                + self.external_force(r)) 
+        return super().calc_acceleration(r,v,t)
 
     def step_VERLET(self, r, v, t):
         """

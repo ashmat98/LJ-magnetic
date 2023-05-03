@@ -11,6 +11,8 @@ class SimulatorLennard(SimulatorIdeal):
         self.sigma = sigma
         self.epsilon = epsilon
         
+        self._placeholder_LJ_force = None # store current force matrix
+
         if __load:
             self.load(**kwargs)
 
@@ -75,16 +77,24 @@ class SimulatorLennard(SimulatorIdeal):
 
     
     def calc_acceleration(self, r, v, t):
-        return (np.sum(self.LJ_force(r), axis = 2) 
-                + self.external_force(r))
+        other_forces = super().calc_acceleration(r,v,t)
+        interaction_force = np.sum(self.LJ_force(r), axis=2)
+        
+        self._placeholder_LJ_force = interaction_force
+
+        return (interaction_force + other_forces)
 
     def other_metrics(self, r, v, t):
         metrics = super().other_metrics(r,v,t)
+
+        if self._placeholder_LJ_force is None:
+            self.calc_acceleration(r, v, t)
 
         metrics.update({
             "IE": self.interaction_energy(r,v),
             "L" : self.angular_momentum(r, v),
             "OMEGA": self.angular_velocity(r, v),
+            "LJ_force": self._placeholder_LJ_force,
             "collisions": np.array(list(self.collision_count.values()))})
         return metrics
     
