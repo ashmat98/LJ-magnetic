@@ -7,7 +7,8 @@ import time
 import numpy as np
 import pandas as pd
 from collections import defaultdict
-from tqdm.notebook import tqdm
+from tqdm.autonotebook import tqdm
+
 import pickle
 import os
 import datetime
@@ -431,7 +432,6 @@ class SimulatorBase:
 
         for it in tqdm(range(int((iteration_time+self.EPS)/dt)), 
                     mininterval=1, disable=not self.verbose):
-        #     r,v,a,t,dp = step_ideal(r, v,a, t)
             if before_step is not None:
                 before_step(self, r, v, t)
 

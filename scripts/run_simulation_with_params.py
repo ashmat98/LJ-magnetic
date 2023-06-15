@@ -34,6 +34,9 @@ from tqdm.notebook import tqdm as tqdm_notebook
 
 from utils.utils import beep
 
+def _runner(args):
+    return runner(*args) 
+
 def multirunner(params, callback=None, processes=-1, pool=None):
     if processes == -1:
         processes = cpu_count()
@@ -52,9 +55,7 @@ def multirunner(params, callback=None, processes=-1, pool=None):
     res += list(tqdm_notebook(res_generator, total=len(new_params)-1))
 
     return res
-
-def _runner(args):
-    return runner(*args)   
+  
 
 def runner(params_model, params_init, params_simulation, callback=None):
     params_model["name"] = params_model.get("name", os.getenv("HOSTNAME"))
@@ -86,7 +87,8 @@ if __name__ == "__main__":
         raise e
     
     try:
-        runner(params_model, params_init, params_simulation)
+        output_path = runner(params_model, params_init, params_simulation)
+        print(output_path)
     except Exception as e:
         print("Error in running simulation!")
         raise e
