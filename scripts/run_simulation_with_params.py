@@ -23,61 +23,28 @@ import adddeps
 import argparse
 
 import numpy as np
-from simulator.magnetic import SimulatorMagnetic
 
-import os, time
+import os
 import json
 
-from multiprocessing import Pool, cpu_count
-from tqdm import tqdm 
-from tqdm.notebook import tqdm as tqdm_notebook
 
-from utils.utils import beep
-
-def _runner(args):
-    return runner(*args) 
-
-def multirunner(params, callback=None, processes=-1, pool=None):
-    if processes == -1:
-        processes = cpu_count()
-
-    if pool is None:
-        pool = Pool(processes, maxtasksperchild=1)
-
-    new_params = []
-    for i, (params_model, params_init, params_simulation) in enumerate(params):
-        params_model = params_model.copy()
-        params_model["verbose"] = (i==0)
-        new_params.append((params_model, params_init, params_simulation, callback))
-        
-    res_generator = pool.imap(_runner, new_params[1:])
-    res = [_runner(new_params[0])]
-    res += list(tqdm_notebook(res_generator, total=len(new_params)-1))
-
-    return res
-  
-
-def runner(params_model, params_init, params_simulation, callback=None):
-    params_model["name"] = params_model.get("name", os.getenv("HOSTNAME"))
-
-    sim = SimulatorMagnetic(**params_model)
-
-    sim.init_positions_closepack(**params_init)
-    sim.init_velocities(**params_init)
-    sim.simulate(**params_simulation)
-
-    if callback is not None:
-        return callback(sim)
-    
-    return sim.push_hdf5()
+from utils.runners import runner
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True)
-    parser.add_argument("--init", type=str, required=True)
-    parser.add_argument("--simulation", type=str, required=True)
+    parser.add_argument("--model", type=str, default=os.getenv("PARAMS_MODEL"), required=False)
+    parser.add_argument("--init", type=str, default=os.getenv("PARAMS_INIT"), required=False)
+    parser.add_argument("--simulation", type=str, default=os.getenv("PARAMS_SIMULATION"), required=False)
     
     args = parser.parse_args()
+    print([args.model, args.init, args.simulation])
+    # if args.model is None:
+    #     args.model = os.getenv("PARAMS_MODEL")
+    # if args.init is None:
+    #     args.init = os.getenv("PARAMS_INIT")
+    # if args.simulation is None:
+    #     args.simulation = os.getenv("PARAMS_SIMULATION")
+    
     try:
         params_model=json.loads(args.model)
         params_init=json.loads(args.init)

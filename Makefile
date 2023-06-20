@@ -19,10 +19,9 @@ default: update_venv
 .DELETE_ON_ERROR:
 ${venv}: requirements.txt
 	python${PYTHON_VERSION} -m venv ${venv}
-	source ${venv}/bin/activate
-	pip download -r ./requirements.txt -d ./.dependencies
+	source ${venv}/bin/activate; \
+	pip download -r ./requirements.txt -d ./.dependencies; \
 	pip install -f ./.dependencies --no-index -r ./requirements.txt
-	# python -m pip install -r ./requirements.txt 
 
 .DELETE_ON_ERROR:
 ${venv}-offline: requirements.txt

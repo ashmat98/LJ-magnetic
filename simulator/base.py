@@ -376,13 +376,15 @@ class SimulatorBase:
             self.start_time = datetime.datetime.now()
 
     def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", before_step=None):
-        estimated_time = iteration_time_estimate(self.particle_number())*iteration_time/dt
+        algorithm="EULER", before_step=None, N=None):
+        if N is None:
+            N = self.particle_number()
+        estimated_time = iteration_time_estimate(N)*iteration_time/dt
         estimated_time = datetime.timedelta(
             seconds=int(estimated_time.total_seconds()))
         return {
             "time": estimated_time,
-            "memory": memory_estimate(self.particle_number()) * iteration_time/ record_interval
+            "memory": memory_estimate(N) * iteration_time/ record_interval
         }
 
     def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 

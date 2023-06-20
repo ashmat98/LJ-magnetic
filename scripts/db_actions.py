@@ -127,10 +127,10 @@ if __name__=="__main__":
     parser.add_argument("--delete-failed", action="store_true")
     parser.add_argument("--delete", action="store_true", dest="delete_failed")
 
-    parser.add_argument("--clean-unlinked-items", action='store_true')
-    parser.add_argument("--clean-unlinked-files", action='store_true')
-    parser.add_argument("--add-unlinked-files", action='store_true')
-    parser.add_argument('--move-results',
+    parser.add_argument("--clean-unlinked-items", action='store_true', help="Delete items from database which are not linked to a hd5f file")
+    parser.add_argument("--clean-unlinked-files", action='store_true', help="delete hdf5 files which are not registered in database.")
+    parser.add_argument("--add-unlinked-files", action='store_true', help="register hdf5 files to database")
+    parser.add_argument('--move-results', help="move hdf5 filed from the results folder to the hdf5s' filder and register to the database",
                         const=RESULT_PATH,
                         default=None,
                         action='store',

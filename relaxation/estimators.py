@@ -8,6 +8,14 @@ from simulator.base import SimulatorBase
 from tqdm import tqdm
 
 EPS = 1e-6
+
+def relaxation_finder_collision(df_collision, N):
+    """
+    N : partition number 
+    """
+    cols = df_collision
+    return N/(EPS+np.polyfit(cols.index, cols.values, 1)[0])
+
 class RelaxationFinder:
     def __init__(self, sim: SimulatorBase, tmax=None, step=2,verbose=True) -> None:
         self.verbose = verbose
@@ -45,8 +53,7 @@ class RelaxationFinder:
 
     def collision_method(self):
         sim = self.sim
-        cols = self.dfs["collisions"]
-        return sim.particle_number()/(EPS+np.polyfit(cols.index, cols.values, 1)[0])
+        return relaxation_finder_collision(self.dfs["collisions"], sim.particle_number())
 
     def precalc(self):
         sim = self.sim

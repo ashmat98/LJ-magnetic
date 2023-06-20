@@ -21,14 +21,14 @@ def iteration_time_estimate(n):
     time needed for single iteration.
     n : particle number
     """
-    return timedelta(seconds=(1.1e-7 * np.maximum(5e3,  n**2)*1.1))
+    return timedelta(seconds=np.maximum(2e-3,  1.0e-7 * n**2.8 * 0.03))
 
 def memory_estimate(n):
     """
     memory needed for single record in MegaBytes
     n : particle number
     """
-    return (70 * n) / 1024**2
+    return (85 * n) / 1024**2
 
 def plot_mean_std(df, color, label):
     from matplotlib import pyplot as plt
