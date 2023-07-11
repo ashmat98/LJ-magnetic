@@ -131,6 +131,8 @@ class SimulatorLennard(SimulatorIdeal):
         super().apply_item(item)
         self.sigma = item.sigma
         self.epsilon = item.epsilon
+
+        
         
     def volume_fraction(self, E=None):
         if E is None:

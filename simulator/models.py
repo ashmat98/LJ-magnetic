@@ -67,11 +67,15 @@ class Simulation(Base):
     history = Column(PickleType, nullable=True)
     history_essential = Column(PickleType, nullable=True)
 
-    def load_history(self):
+    def load_history(self, keys=None):
         if "hdf5" in self.history:
             self.history = Client_HDF5.load_history(
-                os.path.join(HDF5_PATH, self.history["hdf5"]))
-
+                os.path.join(HDF5_PATH, self.history["hdf5"]), keys=keys)
+    
+    def get_hdf5_object(self):
+        hdf5_path = os.path.join(HDF5_PATH, self.history["hdf5"])
+        return h5py.File(hdf5_path, 'r')
+    
 class Client:
     def __init__(self, disk=False) -> None:
         if disk:
@@ -178,10 +182,12 @@ class Client_HDF5:
                 f.create_dataset(key, data=value)
 
     @staticmethod
-    def load_history(hdf5_path):
+    def load_history(hdf5_path, keys=None):
         with h5py.File(hdf5_path, 'r') as f:
             history = dict()
             for key in f:
+                if keys is not None and key not in keys:
+                    continue
                 history[key] = np.array(f[key])
         return history
 

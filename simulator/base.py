@@ -7,7 +7,8 @@ import time
 import numpy as np
 import pandas as pd
 from collections import defaultdict
-from tqdm.autonotebook import tqdm
+# from tqdm.autonotebook import tqdm
+from tqdm import tqdm
 
 import pickle
 import os
@@ -17,7 +18,7 @@ import logging
 import os
 import hashlib
 
-from utils.utils import iteration_time_estimate, memory_estimate
+from utils.utils import get_function, iteration_time_estimate, memory_estimate
 
 
 
@@ -27,6 +28,8 @@ class SimulatorBase:
 
         self.dt = None
         self.history : dict = None
+        self.history_ptr = 0        # index of possition, where new item should be stored
+
         self.history_arr = None
         self.history_essential = None
 
@@ -149,14 +152,20 @@ class SimulatorBase:
         self.history = None
 
     def get_history(self):
-        if self.history_arr is None or len(self.history["rs"]) != len(self.history_arr["rs"]):
-            self.history_arr = self.to_array(self.history)
-        return self.history_arr
+        new_history = {}
+        for key, value in self.history.items():
+            new_history[key] = value[:self.history_ptr]
+        
+        return new_history
+
+        # if self.history_arr is None or len(self.history["rs"]) != len(self.history_arr["rs"]):
+        #     self.history_arr = self.to_array(self.history)
+        # return self.history_arr
 
     def get_data_frames(self, **kwargs):
         if "record_interval" in kwargs:
             self.record_interval = kwargs["record_interval"]
-        index = np.arange(0,len(self.history["rs"]))* self.record_interval
+        index = np.arange(0,self.history_ptr)* self.record_interval
         dframes = dict()
         dframes["index"] = index
         return dframes
@@ -372,7 +381,7 @@ class SimulatorBase:
         pass
 
     def before_simulation(self, r, v, t, algorithm):
-        if len(self.history["rs"]) == 1:
+        if self.history_ptr == 1:
             self.start_time = datetime.datetime.now()
 
     def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
@@ -386,6 +395,38 @@ class SimulatorBase:
             "time": estimated_time,
             "memory": memory_estimate(N) * iteration_time/ record_interval
         }
+
+
+    def _init_history(self):
+        self.history_ptr = 0
+        self.history = defaultdict(list)
+
+        def add_field(key, value):
+            self.history[key] = np.zeros(shape=(1,) + value.shape, dtype="float32")
+            self.history[key][0] = value
+        
+        add_field("time", np.array(0))
+        add_field("rs", self.r_init)
+        add_field("vs", self.v_init)
+        for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
+                add_field(key, value)
+        
+        self.history_ptr = 1
+
+    def _extend_history(self, size):
+        ptr = self.history_ptr
+
+        def extend_field(key):
+            old_array = self.history[key]
+            new_array = np.append(old_array[:ptr],
+                    np.zeros(shape=(size,) + old_array.shape[1:], dtype="float32"),
+                    axis=0)
+            self.history[key] = new_array
+            del old_array
+
+        for key in self.history:
+            extend_field(key)
+            
 
     def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
         algorithm="EULER", before_step=None):
@@ -410,27 +451,32 @@ class SimulatorBase:
         self.record_interval = record_interval
         self.collision_init()
         
+        if type(before_step) is str:
+            before_step = get_function(before_step)
+
         if self.history is None:
-            self.history = defaultdict(list)
-            self.history["time"].append(0)
-            self.history["rs"].append(self.r_init)
-            self.history["vs"].append(self.v_init)
-            for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
-                    self.history[key].append(value)
-        elif type(self.history["time"]) is not list:
-                self.history = self.to_list(self.history)
+            self._init_history()
+
+        alloc_size = int(iteration_time/record_interval + 3)
+        self._extend_history(alloc_size)        
+        
+        ptr = self.history_ptr
             
-        r = self.history["rs"][-1].copy()
-        v = self.history["vs"][-1].copy()
-        t = self.history["time"][-1]
-        for _key, _val in zip(self.collision_count, self.history["collisions"][-1]):
-            self.collision_count[_key] = _val
+        r = self.history["rs"][ptr-1].astype("float64")
+        v = self.history["vs"][ptr-1].astype("float64")
+        t = self.history["time"][ptr-1].astype("float64")
+ 
+        if "collisions" in self.history:
+            for _key, _val in zip(self.collision_count, self.history["collisions"][ptr-1]):
+                self.collision_count[_key] = _val
 
 
         self.before_simulation(r,v,t, algorithm)
         self.update_step_function(algorithm)
 
         logger.info(f"starting simulation {self.name} {self.group_name}")
+
+        last_stored_time = t
 
         for it in tqdm(range(int((iteration_time+self.EPS)/dt)), 
                     mininterval=1, disable=not self.verbose):
@@ -440,12 +486,20 @@ class SimulatorBase:
             r,v,t = self.step(r, v, t)
             self.collision_update(r)
 
-            if t - self.history["time"][-1] >= record_interval - dt/4:
-                self.history["time"].append(round(self.history["time"][-1]+record_interval, 6))
-                self.history["vs"].append(v.copy().astype(np.float32))
-                self.history["rs"].append(r.copy().astype(np.float32))
+            if t - last_stored_time >= record_interval - dt/4:
+
+                last_stored_time = round(last_stored_time + record_interval, 6)
+                
+                self.history["time"][ptr] = last_stored_time
+                self.history["vs"][ptr] = v
+                self.history["rs"][ptr] = r
                 for key, value in self.other_metrics(r,v,t).items():
-                    self.history[key].append(value.astype(np.float32))
+                    self.history[key][ptr] = value
+                
+                ptr += 1
         
+        self.history_ptr = ptr
+
         self.finish_time = datetime.datetime.now()
-        return self.history
+
+        return self.get_history()

@@ -1,4 +1,5 @@
 import numpy as np
+import importlib
 
 sounds = {
     7: 'https://github.com/ashmat98/task-finish-tools/raw/main/beep/sounds/beep-07a.wav',
@@ -37,3 +38,9 @@ def plot_mean_std(df, color, label):
     std = df.std(axis=1)
     m.plot(color=color, label=label)
     plt.fill_between(df.index, (m + std), (m - std), color=color, alpha=0.1)
+
+
+def get_function(import_path):
+    import_path = import_path.split(".")
+    module = importlib.import_module(".".join(import_path[:-1]))
+    return getattr(module, import_path[-1])

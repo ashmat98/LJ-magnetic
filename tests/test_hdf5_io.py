@@ -37,11 +37,11 @@ class hdf5_IO_Test(unittest.TestCase):
     def test_io_hdf5(self):
         sim = SimulatorMagnetic(**params_model)
         init = sim.init_positions_velocities(**params_init)
-        history = sim.to_array(sim.simulate(0.03, dt=1e-3, record_interval=2e-3, algorithm="VERLET"))
+        history = sim.simulate(0.03, dt=1e-3, record_interval=2e-3, algorithm="VERLET")
 
         sim1 = SimulatorMagnetic(**params_model)
         sim1.r_init, sim1.v_init = init
-        history1 = sim.to_array(sim1.simulate(0.01, dt=1e-3, record_interval=2e-3, algorithm="VERLET"))
+        history1 = sim1.simulate(0.01, dt=1e-3, record_interval=2e-3, algorithm="VERLET")
         # history11 = sim.to_array(sim1.simulate(0.02, dt=1e-5, record_interval=1e-3, algorithm="VERLET"))
         path = sim1.push_hdf5()
         print("path:", path)
@@ -49,7 +49,7 @@ class hdf5_IO_Test(unittest.TestCase):
 
         sim2 = SimulatorMagnetic()
         sim2.load(hdf5_path=path)
-        history2 = sim2.to_array(sim2.simulate(0.02, dt=1e-3, record_interval=2e-3, algorithm="VERLET"))
+        history2 = sim2.simulate(0.02, dt=1e-3, record_interval=2e-3, algorithm="VERLET")
 
         self.assertTrue(np.allclose(history2["rs"], history["rs"]))
 
@@ -57,11 +57,11 @@ class hdf5_IO_Test(unittest.TestCase):
     def test_io_db(self):
         sim = SimulatorMagnetic(**params_model)
         init = sim.init_positions_velocities(**params_init)
-        history = sim.to_array(sim.simulate(0.03, dt=1e-3, record_interval=2e-3, algorithm="VERLET"))
+        history = sim.simulate(0.03, dt=1e-3, record_interval=2e-3, algorithm="VERLET")
 
         sim1 = SimulatorMagnetic(**params_model)
         sim1.r_init, sim1.v_init = init
-        history1 = sim.to_array(sim1.simulate(0.01, dt=1e-3, record_interval=2e-3, algorithm="VERLET"))
+        history1 = sim1.simulate(0.01, dt=1e-3, record_interval=2e-3, algorithm="VERLET")
         # history11 = sim.to_array(sim1.simulate(0.02, dt=1e-5, record_interval=1e-3, algorithm="VERLET"))
         hsh = sim1.hash()
 
