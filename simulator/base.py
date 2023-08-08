@@ -57,6 +57,7 @@ class SimulatorBase:
         
         self.verbose = verbose
 
+        self._simulation_t = 0
 
 
 
@@ -464,7 +465,7 @@ class SimulatorBase:
             
         r = self.history["rs"][ptr-1].astype("float64")
         v = self.history["vs"][ptr-1].astype("float64")
-        t = self.history["time"][ptr-1].astype("float64")
+        self._simulation_t = t = self.history["time"][ptr-1].astype("float64")
  
         if "collisions" in self.history:
             for _key, _val in zip(self.collision_count, self.history["collisions"][ptr-1]):
@@ -484,6 +485,7 @@ class SimulatorBase:
                 before_step(self, r, v, t)
 
             r,v,t = self.step(r, v, t)
+            self._simulation_t = t
             self.collision_update(r)
 
             if t - last_stored_time >= record_interval - dt/4:

@@ -3,9 +3,10 @@ import os
 import json
 import h5py
 import numpy as np
+import pandas as pd
 import datetime
 
-from settings import HDF5_PATH
+from settings import HDF5_PATH, DFS_PATH
 
 from sqlalchemy import create_engine, Column, Table, ForeignKey, MetaData, engine, delete
 from sqlalchemy.pool import NullPool
@@ -71,10 +72,21 @@ class Simulation(Base):
         if "hdf5" in self.history:
             self.history = Client_HDF5.load_history(
                 os.path.join(HDF5_PATH, self.history["hdf5"]), keys=keys)
-    
+            
+    def load_df(self, path=None):
+        if "hdf5" in self.history:
+            self.df = pd.read_hdf(os.path.join(DFS_PATH, self.history["hdf5"]))
+            return self.df
+        else:
+            raise NotImplementedError
+
     def get_hdf5_object(self):
-        hdf5_path = os.path.join(HDF5_PATH, self.history["hdf5"])
+        hdf5_path = os.path.join(DFS_PATH, self.history["hdf5"])
         return h5py.File(hdf5_path, 'r')
+    
+    # def delete_dfs(names):
+    #     for name in names:
+
     
 class Client:
     def __init__(self, disk=False) -> None:

@@ -7,7 +7,7 @@ from multiprocessing import Pool, cpu_count
 from tqdm.notebook import tqdm as tqdm_notebook
 from tqdm import tqdm
 
-from utils.utils import beep
+from utils.utils import beep, get_simulation_class
 
 def _runner(args):
     return runner(*args) 
@@ -33,9 +33,13 @@ def multirunner(params, callback=None, processes=-1, pool=None):
   
 
 def runner(params_model, params_init, params_simulation, callback=None):
+    sim_class_name = params_model.pop("class", "SimulatorMagnetic")
+
+    SimulatorClass = get_simulation_class(sim_class_name)
+
     params_model["name"] = params_model.get("name", os.getenv("HOSTNAME"))
 
-    sim = SimulatorMagnetic(**params_model)
+    sim = SimulatorClass(**params_model)
 
     sim.init_positions_closepack(**params_init)
     sim.init_velocities(**params_init)

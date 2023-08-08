@@ -18,20 +18,26 @@ submitted_jobs = []
 def submit_with_estimates_and_params(params_model, params_init, params_simulation, 
                                      script="scripts/general_job.sh", job_name="", copies=1, print_only=False, 
                                      success_email=False,
-                                     time_factor=1, memory_factor=1):
+                                     time_estimate=None,
+                                     time_factor=1.5, memory_factor=1.3):
     sim = SimulatorMagnetic(**params_model)
     sim.init_positions_closepack(**params_init)
 
     estimate = sim.simulate_estimate(**params_simulation)
+    
+    if time_estimate is None:
+        time_estimate = estimate["time"]
+    elif type(time_estimate) in (int, float):
+        time_estimate =  datetime.timedelta(
+            seconds=int(time_estimate)) 
 
-    time_estimate = estimate["time"] * 1.5  # + 50%
     time_estimate = datetime.timedelta(
             seconds=int(time_factor * time_estimate.total_seconds()))    
     days = time_estimate.days
     rest = time_estimate - datetime.timedelta(days=days)
     time_estimate_str = f"{days}-{rest}"
 
-    memory_estimate = 2000 + int(memory_factor * estimate["memory"] * 1.3) # + 30%
+    memory_estimate = 2000 + int(memory_factor * estimate["memory"] ) # + 30%
     
     
     
@@ -50,10 +56,12 @@ Particle number:   {sim.particle_number()}
          copies:   {copies}
         """)
     
-    output_path = f'/home/ashmat/cluster/outputs/{job_name}_{params_model["group_name"].replace(" ", "_")}'
-    os.makedirs(output_path, exist_ok=True)
-    output_path += "/%A_%a.out"
+    # output_path = f'/home/ashmat/cluster/outputs/{job_name}_{params_model["group_name"].replace(" ", "_")}'
+    # os.makedirs(output_path, exist_ok=True)
+    # output_path += "/%A_%a.out"
     
+
+
     # print(time_estimate_str)
     # return
     my_env = os.environ.copy()
@@ -70,7 +78,8 @@ Particle number:   {sim.particle_number()}
         f"--partition={partition}",
         f"--job-name={job_name}",
         f"--array=0-{copies-1}",
-        f"--output={output_path}"]
+        # f"--output={output_path}"
+        ]
     if success_email:
         args.append("--mail-type=END")
 

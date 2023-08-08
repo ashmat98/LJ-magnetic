@@ -1,5 +1,8 @@
 import numpy as np
 import importlib
+import os
+from settings import DFS_PATH
+
 
 sounds = {
     7: 'https://github.com/ashmat98/task-finish-tools/raw/main/beep/sounds/beep-07a.wav',
@@ -31,8 +34,14 @@ def memory_estimate(n):
     """
     return (85 * n) / 1024**2
 
-def plot_mean_std(df, color, label):
+def plot_mean_std(df, color=0, label=""):
+    
     from matplotlib import pyplot as plt
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    if isinstance(color, int):
+        color = colors[color % len(colors)]
+
 
     m = df.mean(axis=1)
     std = df.std(axis=1)
@@ -44,3 +53,14 @@ def get_function(import_path):
     import_path = import_path.split(".")
     module = importlib.import_module(".".join(import_path[:-1]))
     return getattr(module, import_path[-1])
+
+def get_simulation_class(class_name):
+    module = importlib.import_module("simulator")
+    return getattr(module, class_name)
+
+
+def delete_dfs(names):
+    for name in names:
+        file = os.path.join(DFS_PATH, name)
+        if os.path.exists(file):
+            os.remove(file)

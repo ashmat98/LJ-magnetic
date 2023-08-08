@@ -9,3 +9,4 @@ coverage
 nose
 nose-cov
 psycopg2-binary
+tables

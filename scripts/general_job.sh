@@ -38,8 +38,8 @@
 # #SBATCH --job-name="relaxation_time"
 
 
-# #SBATCH --output=/home/ashmat/cluster/outputs/task-%A_%a.out
-# #SBATCH --error=/home/ashmat/cluster/outputs/task-%A_%a.err
+#SBATCH --output=/home/ashmat/cluster/outputs/%A_%a.out
+# #SBATCH --error=/home/ashmat/cluster/outputs/%A_%a.err
 
 
 set -e
