@@ -1,14 +1,14 @@
 #!/bin/bash
 
-#SBATCH --array=0
+# #SBATCH --array=1-5000
 
 #SBATCH --ntasks=1  # number of processor cores (i.e. tasks)
 #SBATCH --cpus-per-task=1
 
-# #SBATCH --mem-per-cpu=1100M
-# #SBATCH --time=0-5:00:00
+#SBATCH --mem-per-cpu=20000M
+#SBATCH --time=0-3:30:00
 
-# #SBATCH --partition medium
+#SBATCH --partition medium
 
 # The following partitions are available
 # debug	        10:00
@@ -33,12 +33,12 @@
 
 #SBATCH --mail-type FAIL
 #SBATCH --mail-type TIME_LIMIT
+#SBATCH --mail-type END
+# #SBATCH --mail-type ARRAY_TASKS
 
+#SBATCH --job-name="convert"
 
-# #SBATCH --job-name="relaxation_time"
-
-
-#SBATCH --output=/data/biophys/ashmat/outputs/%A_%a
+#SBATCH --output=/data/biophys/ashmat/outputs/%A_%a.out
 # #SBATCH --error=/data/biophys/ashmat/outputs/%A_%a.err
 
 
@@ -50,67 +50,43 @@ START=$(date +%s.%N)
 
 # Set variables you need
 job_id=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
-export JOB_ID=$job_id
 
-data="/data/biophys/ashmat/LJ-magnetic"
-source=/home/ashmat/cluster/LJ-magnetic/
+
+hdf5_dir="/data/biophys/ashmat/LJ-magnetic/hdf5s"
+dfs_dir="/data/biophys/ashmat/LJ-magnetic/dfs"
+
+source=/home/ashmat/cluster/LJ-magnetic/tasks/convert_to_df
+
 scratch="/scratch/$USER/$job_id"
-
-export BASE_DIR="$scratch/source"
-
 
 
 
 #Create your scratch space
-mkdir -p $data/results
-mkdir -p $data/results/$job_id
+mkdir -p $dfs_dir
 
 mkdir -p $scratch
-mkdir -p $scratch/results
 
 
 cd $scratch
 # Copy your program (and maybe input files if you need them)
-# cp -r $source ./source
-rsync -a --exclude '.*' --exclude '.lammps_build*' --exclude '.vscode*' "$source/" "./source"
-cd $BASE_DIR
-
-ls -a
+cp -r $source ./source
+cd ./source
 
 
-# ln -s $data/outputs/task-$job_id.out $data/results/$job_id/stdout.txt
-# ln -s $root/outputs/task-$SLURM_JOB_ID.err $project/results/$SLURM_JOB_ID/stderr.txt
+filename=$(sed -n -e "$SLURM_ARRAY_TASK_ID p" ./file_names.txt)
+echo $filename
 
-export HDF5_PATH=${scratch}/results
-export LOG_PATH=${scratch}/results/
+cp "$hdf5_dir/$filename" "./$filename"
 
-module load python
-# make offline
-
-if [ -n "$USE_LAMMPS" ]; then
-    ./simulator/lammps_scripts/build_lammps.sh
-fi
-
-
-if [ -n "$PARAM_FILE" ]; then
-    params=$(sed -n -e "$SLURM_ARRAY_TASK_ID p" "$PARAM_FILE")
-    echo $params
-    
-    eval "python3 \"scripts/run_simulation_with_params.py\" $params"
-else
-    python3 "scripts/run_simulation_with_params.py"
-fi
-
-
+module load python/3.8
+python3 convert.py "./$filename" "./$filename"
 
 # copy results to an accessable location
-# only copy things you really need
-cp -Tr $scratch/results $data/results/$job_id 
+cp "$scratch/source/$filename" "$dfs_dir/$filename"
 
-# Clean up after yourself
+# Clean up
 cd
 rm -rf $scratch
-# rm -rf $scratch/results
 
 END=$(date +%s.%N)
 DIFF=$(echo " ($END - $START)" | bc )

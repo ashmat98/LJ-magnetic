@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from simulator.lennard import SimulatorLennard
-from simulator.models import Simulation
+from simulator.hdf5IO import Simulation
 
 class SimulatorRotating(SimulatorLennard):
     def __init__(self, phi, omega, **kwargs):

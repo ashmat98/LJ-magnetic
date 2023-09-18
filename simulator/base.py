@@ -5,18 +5,14 @@ from selectors import EpollSelector
 import time
 
 import numpy as np
-import pandas as pd
 from collections import defaultdict
 # from tqdm.autonotebook import tqdm
 from tqdm import tqdm
 
-import pickle
 import os
 import datetime
-from simulator.models import Client, Client_HDF5, Simulation
 import logging
 import os
-import hashlib
 
 from utils.utils import get_function, iteration_time_estimate, memory_estimate
 
@@ -186,6 +182,9 @@ class SimulatorBase:
     def init_positions_closepack(self, energy, sigma_grid,
         position_random_shift_percentage, planar, **kwargs):
 
+        # sometimes we want to initialise positions with different energy
+        energy = kwargs.get("energy_for_position_init", energy)
+
         v1=np.array([0.5*np.sqrt(3),0.5,0])
         v2=np.array([0.5*np.sqrt(3),-0.5,0])
         v3=np.array([np.sqrt(1/3),0,np.sqrt(2/3)])
@@ -210,7 +209,7 @@ class SimulatorBase:
         self.r_init = r_init
         return r_init
 
-    def L_given_E_constraint(self,energy):
+    def L_given_E_constraint(self, energy):
         N = self.particle_number()
         
         P0 = (self.external_potential_energy(self.r_init, None).sum() 
@@ -220,7 +219,7 @@ class SimulatorBase:
         return np.sqrt(2*I0*E1), E1
 
     def init_velocities(self, energy, angular_momentum=None, angular_momentum_factor=None,**kwargs):
-
+        
         if angular_momentum_factor is not None:
             angular_momentum = self.L_given_E_constraint(energy)[0]*angular_momentum_factor
         if angular_momentum is None:
@@ -386,7 +385,7 @@ class SimulatorBase:
             self.start_time = datetime.datetime.now()
 
     def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", before_step=None, N=None):
+        algorithm="EULER", before_step=None, N=None, **kwargs):
         if N is None:
             N = self.particle_number()
         estimated_time = iteration_time_estimate(N)*iteration_time/dt

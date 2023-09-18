@@ -1,0 +1,91 @@
+
+units lj
+
+timestep ${dt}
+
+variable data_file string "./tmp_lammps/${hash}.data"
+
+# Define the time at which you want to change the potential parameters
+# variable warmup_steps equal 1000  # Adjust this to your desired time
+# variable steps equal 1000  # Adjust this to your desired time
+
+
+# # Define the initial potential parameters
+# variable kx_warmup equal 0.1
+# variable ky_warmup equal 0.2
+# variable kz_warmup equal 0.3
+
+# # Define the new potential parameters
+# variable kx equal 0.05  # New value for kx
+# variable ky equal 0.15  # New value for ky
+# variable kz equal 0.25  # New value for kz
+
+######################################
+
+dimension 3
+boundary p p p
+
+atom_style      atomic
+
+read_data ${data_file}
+mass 1 1.0
+
+group my_atoms type 1
+
+variable cutoff equal 2.5*${sigma}
+variable skin equal 0.3*${sigma}
+
+pair_style      lj/cut/omp ${cutoff}
+pair_coeff      1 1 ${epsilon} ${sigma} ${cutoff}
+
+neighbor        ${skin} bin
+neigh_modify    delay 0 every 20 check no
+
+######################################
+
+
+
+
+
+# Create the quadratic external potential
+variable fx atom -x*${kx_warmup}
+variable fy atom -y*${ky_warmup}
+variable fz atom -z*${kz_warmup}
+
+
+variable PE_a atom "-0.5 * ( v_fx*x + v_fy*y + v_fz*z)" # potential energy per atom
+compute KE_a all ke/atom # kinetic energy per atom
+compute IE_a1 all pe/atom # interaction potential energy per atom
+variable IE_a atom 2*c_IE_a1
+variable E_a atom c_KE_a+0.5*v_IE_a+v_PE_a
+
+variable Lx_a atom y*vz-z*vy
+variable Ly_a atom z*vx-x*vz
+variable Lz_a atom x*vy-y*vx
+
+# set external potential
+fix quad_confinement all addforce v_fx v_fy v_fz energy v_PE_a
+
+# setup output
+dump myDump all custom ${record_steps} ./tmp_lammps/${hash}.lammpstrj c_KE_a v_PE_a v_IE_a v_E_a v_Lx_a v_Ly_a v_Lz_a
+dump h5md1 all h5md ${record_steps} ./tmp_lammps/${hash}.h5 position velocity force
+
+# fix integration type
+fix 1 all nve
+
+
+
+thermo_style custom step temp
+
+
+# warmup period
+run ${warmup_steps}
+
+
+variable fx atom -x*${kx}
+variable fy atom -y*${ky}
+variable fz atom -z*${kz}
+
+# Continue the simulation
+run ${steps}
+

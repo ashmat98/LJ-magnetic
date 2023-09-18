@@ -4,6 +4,8 @@ dumps/
 .vscode
 .dependencies
 .venv
+.lammps_build
+tmp_lammps
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -35,11 +35,12 @@ params_init = {
     "zero_momentum": False,
 }
 params_simulation = {
-    "iteration_time" : 1450,
+    # "iteration_time" : 1,
+    # "iteration_time" : 1450,
     "dt" : 1e-3,
     "record_interval" : 2e-1,
     "algorithm" : "VERLET",
-    "before_step" : "tasks.check_diffusion.run_jobs ER6.before_step"
+    "before_step" : "tasks.check_diffusion.run_jobs ER6_2.before_step"
 }
 
 
@@ -49,8 +50,8 @@ sigma_max = 0.23
 
 if __name__ == "__main__":
     for k in range(n+1):
-        # if True or k != 17:
-        #     continue
+        if False or k <2:
+            continue
         sigma_grid = (sigma_min**-3 * k / n + (1-k/n) * sigma_max**-3)**(-1/3)
         p=0.3
         iteration_time = int( (1450**-p * k / n + (1-k/n) * 10000**-p)**(-1/p) )
@@ -61,7 +62,7 @@ if __name__ == "__main__":
         print("sigma_grid= ", sigma_grid)
         submit_with_estimates_and_params(params_model, params_init, params_simulation,copies=150, 
             job_name=f"diffusion coefficient {params_model['group_name']} {k}",
-            print_only=True, time_factor=1.3, memory_factor=2, success_email=True)
+            print_only=True, time_factor=1.5, memory_factor=2, success_email=True)
 
     submit_all_jobs()
 

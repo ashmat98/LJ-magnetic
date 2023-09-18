@@ -1,6 +1,6 @@
 import numpy as np
 from simulator.lennard import SimulatorLennard
-from simulator.models import Simulation
+from simulator.hdf5IO import Simulation
 import pandas as pd
 
 class SimulatorMagnetic(SimulatorLennard):

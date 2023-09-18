@@ -5,7 +5,8 @@ import argparse
 import os
 import shutil
 
-from simulator.models import Client, Client_HDF5, Client, Simulation
+from simulator.hdf5IO import Client_HDF5, Simulation
+from simulator.models import Client, SimulationAlchemy as Sim
 from settings import HDF5_PATH, RESULT_PATH
 from tqdm import tqdm
 
@@ -14,7 +15,7 @@ def clean_unlinked_items(act=True):
     client = Client()
     ids_to_remove = []
     with client.Session() as sess:
-        for sid, _hash in sess.query(Simulation.id, Simulation.hash):    
+        for sid, _hash in sess.query(Sim.id, Sim.hash):    
             if not os.path.exists(os.path.join(HDF5_PATH, _hash+".hdf5")):
                 ids_to_remove.append(sid)
     if len(ids_to_remove) > 0:
@@ -35,7 +36,7 @@ def clean_unlinked_files(act=True):
             _hash, ext = os.path.splitext(file)
             assert ext == ".hdf5"
         
-            c = sess.query(Simulation.id).where(Simulation.hash==_hash).count()
+            c = sess.query(Sim.id).where(Sim.hash==_hash).count()
             if c ==0:
                 if act:
                     os.remove(path)
@@ -49,19 +50,25 @@ def add_unlinked_files(act=True, delete_failed=False):
     client = Client()
     added = 0
     with client.Session() as sess:
+        all_hash = sess.query(Sim.hash).all()
+        all_hash = set([h for h, in all_hash])
+        print("All hashes loaded from db.")
         for file in tqdm(os.listdir(HDF5_PATH)):
             path = os.path.join(HDF5_PATH, file)
             _hash, ext = os.path.splitext(file)
             assert ext == ".hdf5"
         
-            c = sess.query(Simulation.id).where(Simulation.hash==_hash).count()
+            # c = sess.query(Sim.id).where(Sim.hash==_hash).count()
+            c = 1 if _hash in all_hash else 0
             if c ==0:
                 if act:
                     try:
                         item = Client_HDF5(path).load(full_load=False)
-                        Client().push(item, link_hdf5=True)
+                        Client().push(item)
                         
-                    except OSError as e:
+                    except Exception as e:
+                        print(e)
+                        print()
                         added -=1
                         if delete_failed:
                             os.remove(path)
@@ -100,7 +107,7 @@ def add_results_to_db(path, clean_after=True, act=True, delete_failed=False):
                         os.rename(hdf5_from, hdf5_to)
                         item = Client_HDF5(hdf5_to).load(full_load=False)
 
-                        Client().push(item, link_hdf5=True)
+                        Client().push(item)
                         shutil.rmtree(os.path.join(path, job))
                     else:
                         item = Client_HDF5(hdf5_from).load(full_load=True)

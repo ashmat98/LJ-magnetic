@@ -2,7 +2,7 @@ import numpy as np
 import importlib
 import os
 from settings import DFS_PATH
-
+import pandas as pd
 
 sounds = {
     7: 'https://github.com/ashmat98/task-finish-tools/raw/main/beep/sounds/beep-07a.wav',
@@ -64,3 +64,28 @@ def delete_dfs(names):
         file = os.path.join(DFS_PATH, name)
         if os.path.exists(file):
             os.remove(file)
+
+
+def standartize(arr):
+    return (arr - np.mean(arr))/np.std(arr)
+
+def smoothen(df, time_window):
+    if time_window<0:
+        return df
+    window = len(df.loc[0:time_window])
+    df_smooth = df.rolling(window, center=True).mean()
+    
+    if "total_L" in df and "Iz" in df and "total_KE" in df and "N" in df:
+        df_smooth["omega_MLE"] = df_smooth["total_L"]/df_smooth["Iz"]
+        df_smooth["beta_MLE"] = (1/3 * (2 * df["total_KE"] + 
+                                        df.omega_MLE**2 * df["Iz"] 
+                                        - 2 * df["total_L"] * df.omega_MLE)/df["N"] )**-1 
+    return df_smooth
+
+def concat(dfs, key=None):
+    if key is None:
+        df = pd.concat([df for df in dfs],axis=1)
+    else:
+        df = pd.concat([df[key] for df in dfs],axis=1)
+    df.columns = range(len(df.columns))
+    return df

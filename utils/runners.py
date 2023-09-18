@@ -33,7 +33,7 @@ def multirunner(params, callback=None, processes=-1, pool=None):
   
 
 def runner(params_model, params_init, params_simulation, callback=None):
-    sim_class_name = params_model.pop("class", "SimulatorMagnetic")
+    sim_class_name = params_model.pop("cls", "SimulatorMagnetic")
 
     SimulatorClass = get_simulation_class(sim_class_name)
 

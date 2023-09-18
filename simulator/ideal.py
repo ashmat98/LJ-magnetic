@@ -1,6 +1,6 @@
 import numpy as np
+from simulator.hdf5IO import Simulation
 from simulator.baseIO import SimulatorBaseIO
-from simulator.models import Simulation
 import pandas as pd
 
 class SimulatorIdeal(SimulatorBaseIO):

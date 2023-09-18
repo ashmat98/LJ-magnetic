@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from simulator.ideal import SimulatorIdeal
-from simulator.models import Simulation
+from simulator.hdf5IO import Simulation
 
 class SimulatorLennard(SimulatorIdeal):
     def __init__(self, sigma=None, epsilon=None, **kwargs):
@@ -106,8 +106,10 @@ class SimulatorLennard(SimulatorIdeal):
         
         for key in ['IE']:
             dframes[key] = pd.DataFrame(self.get_history()[key], index=index)
-        dframes["collisions"] = pd.DataFrame(self.get_history()["collisions"],
-            columns=self.collision_state.keys(), index=index)
+        
+        if "collisions" in self.history:
+            dframes["collisions"] = pd.DataFrame(self.get_history()["collisions"],
+                columns=self.collision_state.keys(), index=index)
         
         dframes["Etotal"] = dframes["KE"] + dframes["PE"] + 0.5*dframes["IE"]
 

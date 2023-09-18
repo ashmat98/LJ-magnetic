@@ -27,7 +27,6 @@ import numpy as np
 import os
 import json
 
-
 from utils.runners import runner
 
 if __name__ == "__main__":
@@ -38,6 +37,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     print([args.model, args.init, args.simulation])
+    
     # if args.model is None:
     #     args.model = os.getenv("PARAMS_MODEL")
     # if args.init is None:
