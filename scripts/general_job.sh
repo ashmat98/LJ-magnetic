@@ -47,6 +47,7 @@ set -x
 
 START=$(date +%s.%N)
 
+echo "hostname:" $HOSTNAME
 
 # Set variables you need
 job_id=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}

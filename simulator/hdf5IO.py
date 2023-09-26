@@ -66,6 +66,7 @@ class Client_HDF5:
 
             set_value("id", item.id)
             set_value("name", item.name)
+            set_value("cls", item.cls)
             set_value("group_name", item.group_name)
             set_value("start_time", item.start_time.timestamp())
             set_value("finish_time", item.finish_time.timestamp())
@@ -131,3 +132,5 @@ class Client_HDF5:
             item.history = self.load_history(self.path)
 
         return item
+    
+    

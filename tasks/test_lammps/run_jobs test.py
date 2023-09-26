@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
     submit_with_estimates_and_params(params_model, params_init, params_simulation,copies=1, 
                 job_name=f"{params_model['group_name']}",
-                print_summary=True, time_factor=500, memory_factor=4, success_email=False,
-                sbatch_args=["--nodelist=thalia39"])
+                print_summary=True, time_factor=0.25, memory_factor=4, success_email=False,
+                sbatch_args=["--nodelist=eos01"])
             
 
             

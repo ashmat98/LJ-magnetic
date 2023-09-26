@@ -1,5 +1,5 @@
 hash= $(shell ./utils/md5_hash.py requirements.txt hots-${HOSTNAME})
-PYTHON_VERSION=3.7
+PYTHON_VERSION=3.8
 
 current_dir = $(shell pwd)
 
@@ -42,7 +42,7 @@ offline: requirements.txt ${venv}-offline
 	@echo "   source .venv/bin/activate"
 
 fetch_deps: 
-	pip download --python-version 3.7 --no-deps  -r ./requirements.txt -d ./.dependencies
+	pip download --python-version ${PYTHON_VERSION} --no-deps  -r ./requirements.txt -d ./.dependencies
 
 test:
 ifeq ($(second), $(word 2, $(MAKECMDGOALS)))

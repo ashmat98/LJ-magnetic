@@ -55,7 +55,8 @@ class SimulatorBase:
 
         self._simulation_t = 0
 
-
+    def iteration_time_estimate(self, n):
+        return iteration_time_estimate(n)
 
     def norm(self, r):
         return np.sqrt(np.sum(r**2, axis=0))
@@ -383,12 +384,13 @@ class SimulatorBase:
     def before_simulation(self, r, v, t, algorithm):
         if self.history_ptr == 1:
             self.start_time = datetime.datetime.now()
-
+    
+    
     def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
         algorithm="EULER", before_step=None, N=None, **kwargs):
         if N is None:
             N = self.particle_number()
-        estimated_time = iteration_time_estimate(N)*iteration_time/dt
+        estimated_time = self.iteration_time_estimate(N)*iteration_time/dt
         estimated_time = datetime.timedelta(
             seconds=int(estimated_time.total_seconds()))
         return {

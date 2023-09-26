@@ -82,6 +82,14 @@ def smoothen(df, time_window):
                                         - 2 * df["total_L"] * df.omega_MLE)/df["N"] )**-1 
     return df_smooth
 
+def df_round_time(dfs, n=4):
+    if isinstance(dfs, list):
+        return [df_round_time(df, n) for df in dfs]
+    else:
+        df = dfs
+        index = df.index
+        return df.set_index(df.index.values.round(n))
+
 def concat(dfs, key=None):
     if key is None:
         df = pd.concat([df for df in dfs],axis=1)

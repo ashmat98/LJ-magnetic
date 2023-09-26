@@ -33,7 +33,7 @@ class SimulatorLennardLammps(SimulatorLennard):
         a, b, c = self.abc
         a = a * 10
         b = b * 10
-        c = c * 5
+        c = c * 10
 
         lines = [
             "LAMMPS data file",
@@ -101,8 +101,16 @@ class SimulatorLennardLammps(SimulatorLennard):
             f.write("\n".join(lines))
             f.write(template)
 
+    
 
-    def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, warmup=0, run_lammps=False):
+    def iteration_time_estimate(self, n):
+        """
+        time needed for single iteration.
+        n : particle number
+        """
+        return datetime.timedelta(seconds=np.maximum(2e-3,1.0e-6 * n**1 *3))
+    
+    def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, warmup=0, run_lammps=True):
         
         self.start_time = datetime.datetime.now()
 
@@ -118,6 +126,8 @@ class SimulatorLennardLammps(SimulatorLennard):
         
         if run_lammps:
             os.system(self.get_simulation_command())
+            print("Simulation has finished!")
+            print("Processing the dump files...")
             self.load_lammps_dumps()
 
         self.finish_time = datetime.datetime.now()

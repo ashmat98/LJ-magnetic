@@ -82,7 +82,7 @@ def submit_with_estimates_and_params(params_model, params_init, params_simulatio
     if "Lammps" in sim_class_name:
         my_env["USE_LAMMPS"] = "true"
         params_simulation["run_lammps"] = True
-        memory_estimate += 10000
+        memory_estimate += 20000
         time_estimate += datetime.timedelta(minutes=25)
     
     my_env.update({
@@ -115,6 +115,7 @@ def submit_with_estimates_and_params(params_model, params_init, params_simulatio
         partition:   {partition}
             copies:   {copies}
             """)
+    return sim.particle_number()
 
 
     
