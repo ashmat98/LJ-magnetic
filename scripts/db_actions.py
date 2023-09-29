@@ -130,6 +130,26 @@ def add_results_to_db(path, clean_after=True, act=True, delete_failed=False):
                 
     print(f"{added} items " + ("can be " if not act else "") + "added to database.")
     
+def delete_by_groupname(groupnames, act):
+    client = Client()
+
+    with client.Session() as sess:
+        items = sess.query(Sim.id, Sim.hash).where(Sim.group_name.in_(groupnames)).all()
+
+    if act:
+        reply = input(f"Really want to delete {len(items)} items? [y/N]")
+        if reply != "y":
+            return
+    else:
+        print(f"{len(items)} items will be deleted.")
+        return
+    
+    client.remove_simulation([id_ for id_, _ in items])
+    for _, hash_ in tqdm(items):
+        os.remove(os.path.join(HDF5_PATH, hash_+".hdf5"))
+
+
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--act", action="store_true")
@@ -139,6 +159,8 @@ if __name__=="__main__":
     parser.add_argument("--clean-unlinked-items", action='store_true', help="Delete items from database which are not linked to a hd5f file")
     parser.add_argument("--clean-unlinked-files", action='store_true', help="delete hdf5 files which are not registered in database.")
     parser.add_argument("--add-unlinked-files", action='store_true', help="register hdf5 files to database")
+    parser.add_argument("--delete-group", type=str, nargs="+", default=None)
+    
     parser.add_argument('--move-results', help="move hdf5 filed from the results folder to the hdf5s' filder and register to the database",
                         const=RESULT_PATH,
                         default=None,
@@ -151,6 +173,8 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
+    if args.delete_group is not None:
+        delete_by_groupname(args.delete_group, args.act)
     if args.clean_unlinked_items:
         clean_unlinked_items(args.act)
     if args.clean_unlinked_files:
