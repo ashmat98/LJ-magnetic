@@ -7,8 +7,12 @@ import os
 from tqdm import tqdm
 import time
 import numpy as np
-
+import time
 from utils.utils import get_simulation_class
+import shutil
+from settings import SOURCE_PATH
+
+
 
 MaxArraySize = 10000
 
@@ -118,13 +122,27 @@ def submit_with_estimates_and_params(params_model, params_init, params_simulatio
     return sim.particle_number()
 
 
-    
+DUBLICATE_SOURCE_PATH = None
+
+def dublicate_source():
+    global DUBLICATE_SOURCE_PATH
+    DUBLICATE_SOURCE_PATH = os.path.join("/data/biophys/ashmat/tmp", f"LJ-magnetic-{time.time()}")
+    print(f"Dublcating current state of the source to {DUBLICATE_SOURCE_PATH}")
+
+    os.system(
+        "rsync -a --exclude '.*' --exclude '*.ipynb' " \
+        "--exclude 'tmp_lammps/*' --exclude 'visualisation/*' " \
+        f"\"{SOURCE_PATH}/\" \"{DUBLICATE_SOURCE_PATH}\""
+    )
+
 def submit_all_jobs(ask_confirmation=True, as_array=False):
     global submitted_jobs
     
     if ask_confirmation:
         reply = input(f"Submit {len(submitted_jobs)} jobs? [y/N]")
         if reply == "y":
+            path = dublicate_source()
+            # print(DUBLICATE_SOURCE_PATH)
             if not as_array:
                 _submit_separate_jobs()
             else:
@@ -155,6 +173,7 @@ def _submit_separate_jobs():
             command_args.append("--mail-type=END")
         command_args.append(args["script"])
 
+        my_env["SOURCE_PATH"] = DUBLICATE_SOURCE_PATH
         subprocess.run(args=command_args, env=my_env)
 
 def _submit_as_array():
@@ -218,6 +237,7 @@ def _submit_as_array():
 
         print(file_path)
         print(" ".join(command_args))
+        my_env["SOURCE_PATH"] = DUBLICATE_SOURCE_PATH
         subprocess.run(args=command_args, env=my_env)
 
 

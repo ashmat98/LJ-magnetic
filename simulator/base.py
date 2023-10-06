@@ -17,14 +17,105 @@ import os
 from utils.utils import get_function, iteration_time_estimate, memory_estimate
 
 
+def _init_history(self):
+    self._history_ptr = 0
+    self.history = defaultdict(list)
+
+    def add_field(key, value):
+        self.history[key] = np.zeros(shape=(1,) + value.shape, dtype="float32")
+        self.history[key][0] = value
+
+    add_field("time", np.array(0))
+    add_field("rs", self.r_init)
+    add_field("vs", self.v_init)
+    for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
+        add_field(key, value)
+
+    self._history_ptr = 1
+
+
+def _extend_history(self, size):
+    ptr = self._history_ptr
+
+    def extend_field(key):
+        old_array = self.history[key]
+        new_array = np.append(old_array[:ptr],
+                              np.zeros(shape=(size,) +
+                                       old_array.shape[1:], dtype="float32"),
+                              axis=0)
+        self.history[key] = new_array
+        del old_array
+
+    for key in self.history:
+        extend_field(key)
+
+
+class HistoryDict(dict):
+    def __init__(self, **kwargs):
+        self._alloc_size = 0
+        self._ptr = 0
+        self._dtype = "float32"
+
+        if len(kwargs) > 0:
+            self._alloc_size = len(kwargs[next(kwargs)])
+
+        self.ptr = self._alloc_size
+
+        super().__init__(kwargs)
+
+    def new_stamp(self):
+        self._ptr += 1
+
+    def push(self, key, value):
+        if key not in self:
+            self[key] = np.zeros(shape=(self._alloc_size,) +
+                                 value.shape, dtype=self._dtype)
+
+        self[key][self._ptr-1] = value
+
+    def top(self, key):
+        return self[key][self._ptr-1]
+
+    def extend(self, size):
+        self._alloc_size = self.size() + size
+
+        def extend_field(key):
+            old_array = self.get(key)
+            new_array = np.append(
+                old_array, np.zeros(shape=(size,) + old_array.shape[1:],
+                                    dtype="float32"), axis=0)
+            self[key] = new_array
+            del old_array
+
+        for key in self:
+            extend_field(key)
+
+    def size(self):
+        return self._ptr
+
+    def get(self, key, default=None):
+        if key in self:
+            return self[key][:self._ptr]
+        return default
+
+    def update(self, dct):
+        for key, value in dct.items():
+            if self._alloc_size == 0:
+                self._alloc_size = len(value)
+                self._ptr = self._alloc_size
+
+            assert len(value) == self._alloc_size
+            self[key] = value
+
 
 class SimulatorBase:
     def __init__(self, verbose=True, **kwargs):
         np.random.seed((os.getpid() * int(time.time())) % 123456789)
 
         self.dt = None
-        self.history : dict = None
-        self.history_ptr = 0        # index of possition, where new item should be stored
+        self.history: HistoryDict = HistoryDict()
+        self._history_ptr = 0        # index of possition, where new item should be stored
+        self._history_size = 0        # current ated size of history
 
         self.history_arr = None
         self.history_essential = None
@@ -36,7 +127,7 @@ class SimulatorBase:
 
         self.EPS = 1e-8
         self.record_interval = None
-        
+
         self.start_time = None
         self.finish_time = None
         # self.client = Client()
@@ -45,12 +136,12 @@ class SimulatorBase:
         # temporary
         self.dt2 = None
         self.last_a = None
-        
+
         self.last_r_diff = None
         self.last_r_dist = None
 
         self.get_logger = logging.getLogger
-        
+
         self.verbose = verbose
 
         self._simulation_t = 0
@@ -90,14 +181,12 @@ class SimulatorBase:
         diff = self.calc_diff(r)
         return self.norm(diff)
 
-    
-
     def calc_acceleration(self, r, v, t):
         raise NotImplementedError
-    
+
     def kinetic_energy(self, r, v):
         return 0.5 * np.sum(v**2, axis=0)
-    
+
     def external_potential_energy(self, r, v):
         raise NotImplementedError
 
@@ -106,7 +195,7 @@ class SimulatorBase:
 
     def angular_momentum(self, r, v) -> np.ndarray:
         return np.cross(r.T, v.T).T
-    
+
     def moment_of_inertia_z(self, r, v):
         return np.square(self.norm(r[:2]))
 
@@ -141,7 +230,7 @@ class SimulatorBase:
         vs = np.asarray(vs)
         rs = np.asarray(rs)
         KE_mean = np.sum(vs**2)/2/vs.shape[0]
-        W_int = np.mean([np.sum(LJ_potential_derivative(r, box) * calc_dist(r, box)) 
+        W_int = np.mean([np.sum(LJ_potential_derivative(r, box) * calc_dist(r, box))
                         for r in rs])
         pressure = 1/np.product(box) * (KE_mean * (2/3) - 1/6 * W_int)
         return pressure
@@ -151,9 +240,9 @@ class SimulatorBase:
 
     def get_history(self):
         new_history = {}
-        for key, value in self.history.items():
-            new_history[key] = value[:self.history_ptr]
-        
+        for key in self.history:
+            new_history[key] = self.history.get(key)
+
         return new_history
 
         # if self.history_arr is None or len(self.history["rs"]) != len(self.history_arr["rs"]):
@@ -163,11 +252,11 @@ class SimulatorBase:
     def get_data_frames(self, **kwargs):
         if "record_interval" in kwargs:
             self.record_interval = kwargs["record_interval"]
-        index = np.arange(0,self.history_ptr)* self.record_interval
+        index = np.arange(0, self.history.size()) * self.record_interval
         dframes = dict()
         dframes["index"] = index
         return dframes
-    
+
     def set_history(self, history):
         self.history = self.to_list(history)
 
@@ -181,48 +270,51 @@ class SimulatorBase:
         return round(t+self.dt, 7)
 
     def init_positions_closepack(self, energy, sigma_grid,
-        position_random_shift_percentage, planar, **kwargs):
+                                 position_random_shift_percentage, planar, **kwargs):
 
         # sometimes we want to initialise positions with different energy
         energy = kwargs.get("energy_for_position_init", energy)
 
-        v1=np.array([0.5*np.sqrt(3),0.5,0])
-        v2=np.array([0.5*np.sqrt(3),-0.5,0])
-        v3=np.array([np.sqrt(1/3),0,np.sqrt(2/3)])
-        
+        v1 = np.array([0.5*np.sqrt(3), 0.5, 0])
+        v2 = np.array([0.5*np.sqrt(3), -0.5, 0])
+        v3 = np.array([np.sqrt(1/3), 0, np.sqrt(2/3)])
+
         bounds = np.sqrt(energy * 2 * self.abc**2)
         if planar:
             bounds[2] = self.EPS
         n3 = round(1+bounds[2]/v3[2])
-        n1=n2=round(max(bounds[0],bounds[1])*2+1)
+        n1 = n2 = round(max(bounds[0], bounds[1])*2+1)
 
         def helper(x):
             return np.concatenate([-x[::-1][:-1], x])
-        grid_points = [helper(np.arange(0, bnd)) for bnd in np.array([n1,n2,n3])/sigma_grid]
-        integer_points = np.stack(np.meshgrid(*grid_points)).reshape(3,-1)
-        points = sigma_grid * np.array([v1,v2,v3]).T.dot(integer_points)
-        
+        grid_points = [helper(np.arange(0, bnd))
+                       for bnd in np.array([n1, n2, n3])/sigma_grid]
+        integer_points = np.stack(np.meshgrid(*grid_points)).reshape(3, -1)
+        points = sigma_grid * np.array([v1, v2, v3]).T.dot(integer_points)
+
     #     r_init = points
         r_init = points[:, self.external_potential(points) < energy]
 
-        shift_eps=max(0,(sigma_grid-self.sigma)*0.5*position_random_shift_percentage)
-        r_init += np.random.uniform(-shift_eps,shift_eps, r_init.shape)
+        shift_eps = max(0, (sigma_grid-self.sigma)*0.5 *
+                        position_random_shift_percentage)
+        r_init += np.random.uniform(-shift_eps, shift_eps, r_init.shape)
         self.r_init = r_init
         return r_init
 
     def L_given_E_constraint(self, energy):
         N = self.particle_number()
-        
-        P0 = (self.external_potential_energy(self.r_init, None).sum() 
-            + 0.5*self.interaction_energy(self.r_init, None).sum())
+
+        P0 = (self.external_potential_energy(self.r_init, None).sum()
+              + 0.5*self.interaction_energy(self.r_init, None).sum())
         E1 = N * energy - P0
-        I0 = self.moment_of_inertia_z(self.r_init,None).sum()
+        I0 = self.moment_of_inertia_z(self.r_init, None).sum()
         return np.sqrt(2*I0*E1), E1
 
-    def init_velocities(self, energy, angular_momentum=None, angular_momentum_factor=None,**kwargs):
-        
+    def init_velocities(self, energy, angular_momentum=None, angular_momentum_factor=None, **kwargs):
+
         if angular_momentum_factor is not None:
-            angular_momentum = self.L_given_E_constraint(energy)[0]*angular_momentum_factor
+            angular_momentum = self.L_given_E_constraint(
+                energy)[0]*angular_momentum_factor
         if angular_momentum is None:
             raise Exception("Angular momentum is not provided")
 
@@ -236,17 +328,19 @@ class SimulatorBase:
         assert L1_max > L1
 
         alpha1 = -(np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2))
-        omega1 = ((-2*E1*I0*L0 + L0*L1**2 - (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) + 
-            (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
-        alpha2 = np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2) 
-        omega2 = ((-2*E1*I0*L0 + L0*L1**2 + (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) - 
-            (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
-        omega2 = (-L0 + (np.sqrt(2*E0*I0 - L0**2)*L1)/np.sqrt(2*E1*I0 - L1**2))/I0
-        self.v_init = alpha2 * (self.v_init + np.cross([0,0,omega2],self.r_init.T).T)
+        omega1 = ((-2*E1*I0*L0 + L0*L1**2 - (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) +
+                   (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
+        alpha2 = np.sqrt(2*E1*I0 - L1**2)/np.sqrt(2*E0*I0 - L0**2)
+        omega2 = ((-2*E1*I0*L0 + L0*L1**2 + (2*E0*I0*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2) -
+                   (L0**2*L1*np.sqrt(2*E1*I0 - L1**2))/np.sqrt(2*E0*I0 - L0**2))/(2*E1*I0**2 - I0*L1**2))
+        omega2 = (-L0 + (np.sqrt(2*E0*I0 - L0**2)*L1) /
+                  np.sqrt(2*E1*I0 - L1**2))/I0
+        self.v_init = alpha2 * \
+            (self.v_init + np.cross([0, 0, omega2], self.r_init.T).T)
         return self.r_init, self.v_init, E1
 
-    def init_positions_velocities(self, energy, sigma_grid, 
-        position_random_shift_percentage, planar, zero_momentum, **kwargs):
+    def init_positions_velocities(self, energy, sigma_grid,
+                                  position_random_shift_percentage, planar, zero_momentum, **kwargs):
         def helper(x):
             return np.concatenate([-x[::-1][:-1], x])
         bounds = np.sqrt(energy * 2 * self.abc**2)
@@ -254,8 +348,9 @@ class SimulatorBase:
             bounds[2] = self.EPS
 
         grid_points = [helper(np.arange(0, bnd, sigma_grid)) for bnd in bounds]
-        points = np.stack(np.meshgrid(*grid_points)).reshape(3,-1)
-        points += np.random.randn(*points.shape) * position_random_shift_percentage * sigma_grid
+        points = np.stack(np.meshgrid(*grid_points)).reshape(3, -1)
+        points += np.random.randn(*points.shape) * \
+            position_random_shift_percentage * sigma_grid
         r_init = points[:, self.external_potential(points) < energy]
         N = r_init.shape[1]
 
@@ -264,7 +359,7 @@ class SimulatorBase:
 
         v_init = np.random.randn(3, N)
         if planar:
-            v_init[2,:] = 0
+            v_init[2, :] = 0
         v_init = v_init / self.norm(v_init) * v_mag
 
         if zero_momentum:
@@ -272,9 +367,9 @@ class SimulatorBase:
 
         self.r_init = r_init
         self.v_init = v_init
-        
+
         return r_init, v_init
-    
+
     def reorient_velocities(self):
         for i in range(self.particle_number()):
             v = self.v_init[:, i]
@@ -282,21 +377,21 @@ class SimulatorBase:
             v_new = np.random.randn(3)
             v_new = v_new / self.norm(v_new) * v_mag
             self.v_init[:, i] = v_new
-        
+
     def rotational_push(self, p):
         for i in range(self.particle_number()):
             r, v = self.r_init[:, i], self.v_init[:, i]
             r_plane = self.norm(r[:2])
             e_perp = np.array([-r[1], r[0], 0])/(r_plane + self.EPS)
             e_par = np.array([r[0], r[1], 0])/(r_plane + self.EPS)
-            e_z = np.array([0,0,1])            
-            
+            e_z = np.array([0, 0, 1])
+
             v_mag = self.norm(v)
             v_perp_mag = np.dot(v, e_perp)
             v_not_perp = v - v_perp_mag * e_perp
-            v = (v_mag * np.sqrt(p) * e_perp 
-                + v_not_perp * np.sqrt((1-p)) * v_mag / (self.norm(v_not_perp) + self.EPS))
-            
+            v = (v_mag * np.sqrt(p) * e_perp
+                 + v_not_perp * np.sqrt((1-p)) * v_mag / (self.norm(v_not_perp) + self.EPS))
+
             self.v_init[:, i] = v
 
     def rotational_push_2(self, p):
@@ -305,7 +400,7 @@ class SimulatorBase:
             r_mag = np.sqrt((r[0]**2 + r[1]**2))
             v_mag = self.norm(v)
             omega = v_mag*r_mag/(r_mag**2 + self.EPS)
-            v = v * (1-p) + p * np.array([-r[1]*omega,r[0]*omega,0])
+            v = v * (1-p) + p * np.array([-r[1]*omega, r[0]*omega, 0])
             self.v_init[:, i] = v
 
     def other_metrics(self, r, v, t):
@@ -317,7 +412,7 @@ class SimulatorBase:
         for key, value in dct.items():
             dct[key] = np.array(value, dtype=np.float32)
         return dct
-    
+
     @staticmethod
     def to_list(dct):
         dct = dct.copy()
@@ -338,15 +433,14 @@ class SimulatorBase:
         r += v * self.dt
         v += a * self.dt
         return r, v, self.next_time(t)
-    
+
     def step_RK(self, r, v, t):
         dt = self.dt
         hdt = 0.5 * dt
 
-
         k1v = self.calc_acceleration(r, v, t)
         k1r = v
-        
+
         k2v = self.calc_acceleration(r + hdt, v + hdt * k1v, t + hdt)
         k2r = v + hdt * k1v
 
@@ -372,22 +466,22 @@ class SimulatorBase:
         self.last_a = self.calc_acceleration(r, v, t)
         v = v_half + 0.5 * self.last_a * self.dt
         return r, v, t
-    
+
     def collision_init(self):
-        for k in [1,1.061,1.122]:
-            self.collision_state[k] = np.zeros((self.particle_number(),self.particle_number()), dtype=int)
+        for k in [1, 1.061, 1.122]:
+            self.collision_state[k] = np.zeros(
+                (self.particle_number(), self.particle_number()), dtype=int)
             self.collision_count[k] = 0
 
     def collision_update(self, r):
         pass
 
     def before_simulation(self, r, v, t, algorithm):
-        if self.history_ptr == 1:
+        if self.history.size() == 1:
             self.start_time = datetime.datetime.now()
-    
-    
-    def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", before_step=None, N=None, **kwargs):
+
+    def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01,
+                          algorithm="EULER", before_step=None, N=None, **kwargs):
         if N is None:
             N = self.particle_number()
         estimated_time = self.iteration_time_estimate(N)*iteration_time/dt
@@ -395,44 +489,70 @@ class SimulatorBase:
             seconds=int(estimated_time.total_seconds()))
         return {
             "time": estimated_time,
-            "memory": memory_estimate(N) * iteration_time/ record_interval
+            "memory": memory_estimate(N) * iteration_time / record_interval
         }
 
+    def stamp_history(self, r, v, t, particle_properties, total_properties):
+        self.history.new_stamp()
 
-    def _init_history(self):
-        self.history_ptr = 0
-        self.history = defaultdict(list)
+        metrics = self.other_metrics(r, v, t)
 
-        def add_field(key, value):
-            self.history[key] = np.zeros(shape=(1,) + value.shape, dtype="float32")
-            self.history[key][0] = value
-        
-        add_field("time", np.array(0))
-        add_field("rs", self.r_init)
-        add_field("vs", self.v_init)
-        for key, value in self.other_metrics(self.r_init, self.v_init, 0).items():
-                add_field(key, value)
-        
-        self.history_ptr = 1
+        self.history.push("time", t)
 
-    def _extend_history(self, size):
-        ptr = self.history_ptr
+        if particle_properties:
+            self.history.push("vs", v)
+            self.history.push("rs", r)
 
-        def extend_field(key):
-            old_array = self.history[key]
-            new_array = np.append(old_array[:ptr],
-                    np.zeros(shape=(size,) + old_array.shape[1:], dtype="float32"),
-                    axis=0)
-            self.history[key] = new_array
-            del old_array
+            for key, value in metrics.items():
+                self.history.push(key, value)
 
-        for key in self.history:
-            extend_field(key)
-            
+        if total_properties:
+            prefix = "total/"
+            # self.history.push(prefix+"Iz", np.sum(r[0]**2 + r[1]**2, axis=-1))
 
-    def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, 
-        algorithm="EULER", before_step=None):
+            self.history.push(prefix+"xx", np.mean(r[0]**2, axis=-1))
+            self.history.push(prefix+"yy", np.mean(r[1]**2, axis=-1))
+            self.history.push(prefix+"zz", np.mean(r[2]**2, axis=-1))
+            self.history.push(prefix+"xy", np.mean(r[0] * r[1], axis=-1))
 
+            self.history.push(prefix+"vxvx", np.mean(v[0]**2, axis=-1))
+            self.history.push(prefix+"vyvy", np.mean(v[1]**2, axis=-1))
+            self.history.push(prefix+"vzvz", np.mean(v[2]**2, axis=-1))
+            self.history.push(prefix+"vxvy", np.mean(v[0] * v[1], axis=-1))
+
+            omega_MLE = (np.mean(r[0] * v[1]-r[1] * v[0]) /
+                         np.mean(r[0]**2+r[1]**2))
+
+            beta_MLE = (1/3 * np.mean(
+                (v[0]+omega_MLE * r[1])**2 +
+                (v[1]-omega_MLE * r[0])**2 + (v[2])**2
+            ))**-1
+
+            self.history.push(prefix+"omega_MLE", omega_MLE)
+            self.history.push(prefix+"beta_MLE", beta_MLE)
+
+            self.history.push(prefix+"L", metrics["L"][2].sum())
+            self.history.push(prefix+"KE", np.sum(metrics["KE"]))
+            self.history.push(prefix+"IE", np.sum(metrics["IE"]))
+            self.history.push(prefix+"PE", np.sum(metrics["PE"]))
+
+            # np.sum(0.5 * history["IE"] + history["PE"] + history["KE"]
+            self.history.push(prefix+"E",
+                              self.history.top(prefix+"KE")
+                              + self.history.top(prefix+"PE")
+                              + 0.5 * self.history.top(prefix+"IE")
+                              )
+
+            if "collisions" in metrics:
+                for i, c in enumerate(metrics["collisions"]):
+                    self.history.push(prefix+f"collisions-{i+1}", c)
+
+    def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01,
+                 algorithm="EULER",
+                 before_step=None,
+                 particle_properties=True,
+                 total_properties=False
+                 ):
         """
         r,v,a,t: initial parameters of the system
         box: size of the box
@@ -440,7 +560,7 @@ class SimulatorBase:
         iteration_time: time to simulate
         dt: time interval of the one step
         record_interval: interval of recording the state of the system 
-        """    
+        """
         assert isinstance(iteration_time, numbers.Number)
         assert isinstance(dt, numbers.Number)
 
@@ -452,56 +572,49 @@ class SimulatorBase:
         self.dt2 = dt * dt
         self.record_interval = record_interval
         self.collision_init()
-        
+
         if type(before_step) is str:
             before_step = get_function(before_step)
 
-        if self.history is None:
-            self._init_history()
-
         alloc_size = int(iteration_time/record_interval + 3)
-        self._extend_history(alloc_size)        
-        
-        ptr = self.history_ptr
-            
-        r = self.history["rs"][ptr-1].astype("float64")
-        v = self.history["vs"][ptr-1].astype("float64")
-        self._simulation_t = t = self.history["time"][ptr-1].astype("float64")
- 
+        self.history.extend(alloc_size)
+
+        if self.history.size() == 0:
+            self.stamp_history(self.r_init, self.v_init, np.array(0),
+                               particle_properties, total_properties)
+            r = self.r_init.copy()
+            v = self.v_init.copy()
+        else:
+            r = self.history.top("rs").astype("float64")
+            v = self.history.top("vs").astype("float64")
+
+        self._simulation_t = t = self.history.top("time").astype("float64")
+
         if "collisions" in self.history:
-            for _key, _val in zip(self.collision_count, self.history["collisions"][ptr-1]):
+            for _key, _val in zip(self.collision_count, self.history.top("collisions")):
                 self.collision_count[_key] = _val
 
-
-        self.before_simulation(r,v,t, algorithm)
+        self.before_simulation(r, v, t, algorithm)
         self.update_step_function(algorithm)
 
         logger.info(f"starting simulation {self.name} {self.group_name}")
 
         last_stored_time = t
 
-        for it in tqdm(range(int((iteration_time+self.EPS)/dt)), 
-                    mininterval=1, disable=not self.verbose):
+        for it in tqdm(range(int((iteration_time+self.EPS)/dt)),
+                       mininterval=1, disable=not self.verbose):
             if before_step is not None:
                 before_step(self, r, v, t)
 
-            r,v,t = self.step(r, v, t)
+            r, v, t = self.step(r, v, t)
             self._simulation_t = t
             self.collision_update(r)
 
             if t - last_stored_time >= record_interval - dt/4:
 
                 last_stored_time = round(last_stored_time + record_interval, 6)
-                
-                self.history["time"][ptr] = last_stored_time
-                self.history["vs"][ptr] = v
-                self.history["rs"][ptr] = r
-                for key, value in self.other_metrics(r,v,t).items():
-                    self.history[key][ptr] = value
-                
-                ptr += 1
-        
-        self.history_ptr = ptr
+                self.stamp_history(r, v, last_stored_time,
+                                   particle_properties, total_properties)
 
         self.finish_time = datetime.datetime.now()
 

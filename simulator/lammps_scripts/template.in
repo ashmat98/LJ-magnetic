@@ -34,6 +34,10 @@ mass 1 1.0
 
 group my_atoms type 1
 
+group my_subset id <= ${output_particles}
+
+
+
 variable cutoff equal 5*${sigma}
 # variable innercutoff equal 4*${sigma}
 variable skin equal 5*${sigma}
@@ -43,7 +47,7 @@ pair_style      lj/cut/omp ${cutoff}
 pair_coeff      1 1 ${epsilon} ${sigma}
 
 neighbor        ${skin} bin
-neigh_modify    delay 0 every 30 check yes
+neigh_modify    delay 0 every ${nb_rebuild} check yes
 
 ######################################
 
@@ -57,24 +61,93 @@ variable fy atom -y*${ky_warmup}
 variable fz atom -z*${kz_warmup}
 
 
-variable PE_a atom "-0.5 * ( v_fx*x + v_fy*y + v_fz*z)" # potential energy per atom
-compute KE_a all ke/atom # kinetic energy per atom
-compute IE_a1 all pe/atom # interaction potential energy per atom
-variable IE_a atom 2*c_IE_a1
-variable E_a atom c_KE_a+0.5*v_IE_a+v_PE_a
+variable PE atom "-0.5 * ( v_fx*x + v_fy*y + v_fz*z)" # potential energy per atom
+compute KE all ke/atom # kinetic energy per atom
 
-variable Lx_a atom y*vz-z*vy
-variable Ly_a atom z*vx-x*vz
-variable Lz_a atom x*vy-y*vx
+compute IE_1 all pe/atom # interaction potential energy per atom
+variable IE atom 2*c_IE_1
+variable E atom c_KE+0.5*v_IE+v_PE
+
+variable Lx atom y*vz-z*vy
+variable Ly atom z*vx-x*vz
+variable Lz atom x*vy-y*vx
 
 # set external potential
 # fix walls all wall/reflect xlo -2.0 xhi 2.0 ylo -2.0 yhi 2.0 zlo -0.5 zhi 0.5 units lattice
-fix quad_confinement all addforce v_fx v_fy v_fz energy v_PE_a
+fix quad_confinement all addforce v_fx v_fy v_fz energy v_PE
 # fix_modify quad_confinement energy yes
 
-# setup output
-dump myDump all custom ${record_steps} ./tmp_lammps/${hash}.lammpstrj c_KE_a v_PE_a v_IE_a v_E_a v_Lx_a v_Ly_a v_Lz_a
-dump h5md1 all h5md ${record_steps} ./tmp_lammps/${hash}.h5 position velocity force
+# setup output per particle
+# "dump particleProperty my_subset custom ${record_steps} ./tmp_lammps/${hash}.lammpstrj  x y z vx vy vz c_KE v_PE v_IE v_Lx v_Ly v_Lz" &
+
+if "${particle_properties} == True" then &
+"dump particleProperty my_subset custom ${record_steps} ./tmp_lammps/${hash}.lammpstrj c_KE v_PE v_IE v_Lx v_Ly v_Lz" &
+"dump_modify particleProperty sort id" &
+"dump h5md1 my_subset h5md ${record_steps} ./tmp_lammps/${hash}.h5 position velocity force"
+
+
+
+compute total_KE all reduce sum c_KE
+variable total_KE equal c_total_KE
+
+compute total_PE all reduce sum v_PE
+variable total_PE equal c_total_PE
+
+compute total_IE all reduce sum v_IE
+variable total_IE equal c_total_IE
+
+variable total_E equal c_total_KE+c_total_PE+0.5*c_total_IE
+
+compute total_L all reduce sum v_Lz
+variable total_L equal c_total_L
+
+# xyz moments
+variable xx atom x*x
+compute total_xx all reduce ave v_xx
+variable total_xx equal c_total_xx
+
+variable yy atom y*y
+compute total_yy all reduce ave v_yy
+variable total_yy equal c_total_yy
+
+variable xy atom x*y
+compute total_xy all reduce ave v_xy
+variable total_xy equal c_total_xy
+
+variable zz atom z*z
+compute total_zz all reduce ave v_zz
+variable total_zz equal c_total_zz
+
+# vx vy vz moments
+variable vxvx atom vx*vx
+compute total_vxvx all reduce ave v_vxvx
+variable total_vxvx equal c_total_vxvx
+
+variable vyvy atom vy*vy
+compute total_vyvy all reduce ave v_vyvy
+variable total_vyvy equal c_total_vyvy
+
+variable vxvy atom vx*vy
+compute total_vxvy all reduce ave v_vxvy
+variable total_vxvy equal c_total_vxvy
+
+variable vzvz atom vz*vz
+compute total_vzvz all reduce ave v_vzvz
+variable total_vzvz equal c_total_vzvz
+
+variable total_xxyy equal (v_total_xx+v_total_yy)
+variable total_vv equal v_total_vxvx+v_total_vyvy+v_total_vzvz
+
+
+variable omega_MLE equal v_total_L/v_particles/v_total_xxyy
+variable beta_MLE equal 3/(v_total_vv+v_omega_MLE^2*v_total_xxyy-2*v_omega_MLE*v_total_L/v_particles)
+
+variable time equal time
+variable step equal step
+
+
+if "${total_properties} == True" then &
+'fix totalProperty all print ${record_steps} "${step} ${time} ${total_KE} ${total_PE} ${total_IE} ${total_E} ${total_L} ${total_xx} ${total_yy} ${total_zz} ${total_xy} ${total_vxvx} ${total_vyvy} ${total_vzvz} ${total_vxvy} ${omega_MLE} ${beta_MLE}" file ./tmp_lammps/${hash}.total.lammpstrj screen no'
 
 # fix integration type
 fix 1 all nve

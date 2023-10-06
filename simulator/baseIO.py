@@ -58,8 +58,8 @@ class SimulatorBaseIO(SimulatorBase):
         item.E_init = sum(self.system_energy(self.r_init, self.v_init)).sum()
         item.dt = self.dt
         item.particles = self.particle_number()
-        item.t = float(self.history["time"][self.history_ptr-1])
-        item.iterations = self.history_ptr # this is a bug
+        item.t = float(self.history.top("time"))
+        item.iterations = self.history.size() # this is a bug
         item.record_interval = self.record_interval
         
         if self.only_essential is None:
@@ -81,13 +81,9 @@ class SimulatorBaseIO(SimulatorBase):
         self.dt = item.dt
         self.record_interval = item.record_interval
         
-        self.history = item.history
-        self.history_ptr = item.iterations
+        self.history.update(item.history)
 
-        #TODO: merge history and essential history
-        if self.history is not None:
-            # self.history = self.to_list(self.history)
-
+        if self.history.size() > 0:
             self.r_init = self.history["rs"][0]
             self.v_init = self.history["vs"][0]
 

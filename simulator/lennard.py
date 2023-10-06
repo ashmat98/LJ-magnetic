@@ -93,7 +93,7 @@ class SimulatorLennard(SimulatorIdeal):
         metrics.update({
             "IE": self.interaction_energy(r,v),
             "L" : self.angular_momentum(r, v),
-            "OMEGA": self.angular_velocity(r, v),
+            # "OMEGA": self.angular_velocity(r, v),
             "LJ_force": self._placeholder_LJ_force,
             "collisions": np.array(list(self.collision_count.values()))})
         return metrics

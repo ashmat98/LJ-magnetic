@@ -90,10 +90,13 @@ def df_round_time(dfs, n=4):
         index = df.index
         return df.set_index(df.index.values.round(n))
 
-def concat(dfs, key=None):
+def concat(dfs, key=None, round=5):
+        
     if key is None:
         df = pd.concat([df for df in dfs],axis=1)
     else:
         df = pd.concat([df[key] for df in dfs],axis=1)
     df.columns = range(len(df.columns))
     return df
+
+

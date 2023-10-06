@@ -32,23 +32,43 @@ class Simulation:
         self.history = None
         self.history_essential = None
 
+        # self._hdf5_path = os.path.join(HDF5_PATH, self.hash + ".hdf5")
+
+    @property
+    def _hdf5_path(self):
+        return os.path.join(HDF5_PATH, self.hash + ".hdf5")
 
     def load_history(self, keys=None):
-        self.history = Client_HDF5.load_history(
-            os.path.join(HDF5_PATH, self.hash + ".hdf5"), keys=keys)
+        self.history = Client_HDF5(self._hdf5_path).load_history(keys=keys)
+    
             
-    def load_df(self, path=None):
+    def load_df_old(self, path=None):
         self.df = pd.read_hdf(os.path.join(DFS_PATH, self.hash + ".hdf5"))
         return self.df
+
+    def load_df(self):
+        history = Client_HDF5(self._hdf5_path).load_history(keys=["time", "total"])
+        if len(history) <= 1:
+            self.df = None
+            return None
+        
+        history["total/time"] = history["time"]
+
+        data = {key[6:]:value for key, value in history.items()}
+        
+        self.df = pd.DataFrame(data).set_index("time")
+        return self.df
     
+
     def get_hdf5_object(self):
-        hdf5_path = os.path.join(DFS_PATH, self.hash + ".hdf5")
+        hdf5_path = os.path.join(HDF5_PATH, self.hash + ".hdf5")
         return h5py.File(hdf5_path, 'r')
     
     def get_member_variables(self):
         member_variables = [attr for attr in dir(self) 
-                            if not callable(getattr(self, attr)) and 
-                            not attr.startswith("_")]
+                            if not attr.startswith("_") and 
+                            not callable(getattr(self, attr))
+                            ]
         return member_variables
 
 
@@ -63,7 +83,7 @@ class Client_HDF5:
             def set_value(key, value):
                 if value is not None:
                     f.attrs[key] = value
-
+            
             set_value("id", item.id)
             set_value("name", item.name)
             set_value("cls", item.cls)
@@ -90,20 +110,26 @@ class Client_HDF5:
             for key, value in item.history.items():
                 f.create_dataset(key, data=value)
 
-    @staticmethod
-    def load_history(hdf5_path, keys=None):
-        with h5py.File(hdf5_path, 'r') as f:
+    
+    def load_history(self, keys=None):
+        with h5py.File(self.path, 'r') as f:
             history = dict()
-            for key in f:
+            for key, value in f.items():
                 if keys is not None and key not in keys:
                     continue
-                history[key] = np.array(f[key])
+                if key == "total":
+                    for key2, value2 in value.items():
+                        history["total/"+key2] = np.array(value2)
+                else:
+                    history[key] = np.array(value)
+
         return history
 
     def load(self, full_load=True):
         item = Simulation()
         with h5py.File(self.path, 'r') as f:
             item.id = f.attrs.get("id")
+            item.cls = f.attrs.get("id")
             item.name = f.attrs.get("name")
             item.group_name = f.attrs.get("group_name")
             item.eccentricity = f.attrs.get("eccentricity")
@@ -129,7 +155,7 @@ class Client_HDF5:
                 f.attrs.get("finish_time"))
 
         if full_load:
-            item.history = self.load_history(self.path)
+            item.history = self.load_history()
 
         return item
     

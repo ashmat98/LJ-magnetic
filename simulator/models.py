@@ -138,6 +138,14 @@ class Client:
 
         return item
     
+    def get_simulation_groups(self, group_names):
+        with self.Session() as sess:
+            items = (sess.query(SimulationAlchemy)
+                    .where(SimulationAlchemy.group_name.in_(group_names ))
+                    .order_by(SimulationAlchemy.start_time)).all()[:]
+
+        return [item.convert() for item in items]
+
     def remove_simulation(self, id):
         with self.Session() as sess:
             if type(id) is int:

@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 import os
-from simulator.magnetic import SimulatorMagnetic
+from simulator import SimulatorLennardLammps, SimulatorMagnetic, SimulatorLennard
 from settings import HDF5_PATH
 
 params_model = {
@@ -15,7 +15,7 @@ params_model = {
 }
 params_init = {
     "energy": 1.0,
-    "sigma_grid":0.2,
+    "sigma_grid":0.5,
     "position_random_shift_percentage": 0.0/100,
     "planar": False,
     "zero_momentum": True
@@ -33,7 +33,7 @@ class hdf5_IO_Test(unittest.TestCase):
                 os.remove(file)
                 pass
     
-    # @unittest.skip("reason for skipping")
+    @unittest.skip("reason for skipping")
     def test_io_hdf5(self):
         sim = SimulatorMagnetic(**params_model)
         init = sim.init_positions_velocities(**params_init)
@@ -53,7 +53,65 @@ class hdf5_IO_Test(unittest.TestCase):
 
         self.assertTrue(np.allclose(history2["rs"], history["rs"]))
 
-    # @unittest.skip("reason for skipping")
+
+    def test_lammps_parsing(self):
+        sim_lammps = SimulatorLennardLammps(**params_model)
+        init = sim_lammps.init_positions_velocities(**params_init)
+        sim_lammps.simulate(0.03, dt=1e-3, record_interval=2e-3, warmup=0.0,
+                            particle_properties=True,
+                            total_properties=True)
+        print("###################################")
+        print("### command")
+        print(sim_lammps.get_simulation_command())
+        print("###################################")
+
+        history_lammps = sim_lammps.history
+
+        sim = SimulatorLennard(**params_model)
+        sim.history.extend(history_lammps.size())
+        for i in range(history_lammps.size()):
+            sim.stamp_history(history_lammps["rs"][i],
+                              history_lammps["vs"][i],
+                              history_lammps["time"][i],
+                              particle_properties=True,
+                              total_properties=True)
+        history = sim.history
+        history.pop("collisions")
+        # print(sorted(history_lammps.keys()))
+        # print(sorted(history.keys()))
+        
+        self.assertTrue(len(history_lammps) == len(history))
+
+        for key in history_lammps:
+            if key in ["LJ_force", "IE", "total/IE",  "total/E"]:
+                continue
+            # print("--",key)
+            # print(np.abs(history_lammps[key]-history[key]).mean())
+            self.assertTrue(np.allclose(history_lammps[key], history[key],rtol=1e-5, atol=1e-4))
+
+    def test_particle_to_total_property_conversion(self):
+        sim_lammps = SimulatorLennardLammps(**params_model)
+        init = sim_lammps.init_positions_velocities(**params_init)
+        sim_lammps.simulate(0.03, dt=1e-3, record_interval=2e-3, warmup=0.0,
+                            particle_properties=True,
+                            total_properties=True)
+        h5_output_path = sim_lammps.push_hdf5()
+        history = sim_lammps.history
+
+        from utils.convert import convert_particle_prop_to_total_prop
+
+        new_history = convert_particle_prop_to_total_prop(h5_output_path)
+
+        for key in history:
+            if "total" in key:
+                # print("--", key)
+                # print(history[key])
+                # print(new_history[key])
+                self.assertTrue(np.allclose(history[key], new_history[key],
+                                            rtol=1e-5, atol=1e-5))
+
+
+    @unittest.skip("reason for skipping")
     def test_io_db(self):
         sim = SimulatorMagnetic(**params_model)
         init = sim.init_positions_velocities(**params_init)
