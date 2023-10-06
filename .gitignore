@@ -1,11 +1,19 @@
 # My folders
 old/
 dumps/
+draft/
+tmp_lammps/
+visualisation/outputs
 .vscode
 .dependencies
 .venv
 .lammps_build
 tmp_lammps
+*.txt
+*.csv
+*.h5
+*.hdf5
+*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
