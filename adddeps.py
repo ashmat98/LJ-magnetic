@@ -3,8 +3,8 @@ import os
 
 # Prepend the root directory of the file into sys.path
 project_root = os.path.abspath(os.path.dirname(__file__))
-
-folders = ['tasks', 'scripts', "tests", "visualisation"]
+# print("Project root:", project_root)
+folders = ['tasks', 'scripts', "tests", "visualisation", "draft"]
 
 def _in(project_root):
     for folder in folders:

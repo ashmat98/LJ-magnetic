@@ -1,5 +1,6 @@
 import os
 
+SOURCE_PATH = "/home/ashmat/cluster/LJ-magnetic"
 
 HDF5_PATH = "../hdf5s/"
 DFS_PATH = "../dfs/"

@@ -2,8 +2,8 @@
 import numpy as np
 
 
-def Cv(t, gamma, T,O):
-    a=1
+def Cv(t, gamma, T,O, a):
+    
     I = 1j; Sqrt = np.sqrt
     
     od = [None]
