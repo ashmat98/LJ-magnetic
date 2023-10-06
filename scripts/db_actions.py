@@ -31,12 +31,18 @@ def clean_unlinked_files(act=True):
     client = Client()
     removed = 0
     with client.Session() as sess:
+        all_hash = sess.query(Sim.hash).all()
+        all_hash = set([h for h, in all_hash])
+        print("All hashes loaded from db.")
+
         for file in tqdm(os.listdir(HDF5_PATH)):
             path = os.path.join(HDF5_PATH, file)
             _hash, ext = os.path.splitext(file)
             assert ext == ".hdf5"
         
-            c = sess.query(Sim.id).where(Sim.hash==_hash).count()
+            # c = sess.query(Sim.id).where(Sim.hash==_hash).count()
+            c = 1 if _hash in all_hash else 0
+
             if c ==0:
                 if act:
                     os.remove(path)
