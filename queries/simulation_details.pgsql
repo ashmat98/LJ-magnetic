@@ -39,7 +39,7 @@ count(id),
 CASE
     when group_name = 'ER 6.1' then 'check_diffusion; changing sigma to check diffusion hypothesis of L'
     when group_name = 'ER 6.2' then 'check_diffusion; same as ER 6.1 with more particles'
-    when group_name = 'ER 6.3' then 'allow initial relaxation for 200 time unit'
+    when group_name = 'ER 6.3' then 'initial angular momentum is twice less'
     when group_name = 'ER 3.2' then 'sigma 0.15 with warmup'
     when group_name = 'ER 2' then 'eccentricity 0.2 faster relaxation'
     when group_name = 'ER 3.1' then 'sigma 0.1 with warmup'
