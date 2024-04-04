@@ -55,20 +55,26 @@ if __name__ == "__main__":
             if params_init["angular_momentum"] > np.sqrt(2*I0*E1):
                 continue
             
-            # sim = SimulatorMagnetic(**params_model)
-            # sim.init_positions_closepack(**params_init)
-            # Lmax, _ = sim.L_given_E_constraint(params_init["energy"])
+            sim = SimulatorMagnetic(**params_model)
+            sim.init_positions_closepack(**params_init)
+            # print(sim.external_potential_energy(sim.r_init, None).sum())
+            print(np.sum(sim.r_init[:2]**2))
+            Lmax, _ = sim.L_given_E_constraint(params_init["energy"])
+            # print(Lmax)
             # assert Lmax > params_init["angular_momentum"]
 
+
+
+
             # continue
-            submit_with_estimates_and_params(params_model, params_init, params_simulation,copies=1, 
-                job_name=f"{params_model['group_name']}",
-                print_summary=False, time_factor=1.7, memory_factor=2, success_email=False)
+            # submit_with_estimates_and_params(params_model, params_init, params_simulation,copies=1, 
+            #     job_name=f"{params_model['group_name']}",
+            #     print_summary=False, time_factor=1.7, memory_factor=2, success_email=False)
             
             i+=1
             
 
-    submit_all_jobs(as_array=True)
+    # submit_all_jobs(as_array=True)
 
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from collections import Counter
 import adddeps
 import argparse
 import os
@@ -36,17 +37,22 @@ def clean_unlinked_files(act=True):
         print("All hashes loaded from db.")
 
         for file in tqdm(os.listdir(HDF5_PATH)):
-            path = os.path.join(HDF5_PATH, file)
-            _hash, ext = os.path.splitext(file)
-            assert ext == ".hdf5"
-        
-            # c = sess.query(Sim.id).where(Sim.hash==_hash).count()
-            c = 1 if _hash in all_hash else 0
+            try:
+                path = os.path.join(HDF5_PATH, file)
+                _hash, ext = os.path.splitext(file)
+                assert ext == ".hdf5"
+            
+                # c = sess.query(Sim.id).where(Sim.hash==_hash).count()
+                c = 1 if _hash in all_hash else 0
 
-            if c ==0:
-                if act:
-                    os.remove(path)
-                removed += 1
+                if c ==0:
+                    if act:
+                        os.remove(path)
+                    removed += 1
+            except Exception as e:
+                print("Error with file:", file)
+                print("\t", str(e))
+            
     if removed > 0:
         print(f"{removed} unlinked hdf5 files " + ("sucsessfully deleted!" if act else "detected"))
     else:
@@ -62,6 +68,7 @@ def add_unlinked_files(act=True, delete_failed=False):
         for file in tqdm(os.listdir(HDF5_PATH)):
             path = os.path.join(HDF5_PATH, file)
             _hash, ext = os.path.splitext(file)
+            # print(path)
             assert ext == ".hdf5"
         
             # c = sess.query(Sim.id).where(Sim.hash==_hash).count()
@@ -94,6 +101,8 @@ def add_unlinked_files(act=True, delete_failed=False):
 
 def add_results_to_db(path, clean_after=True, act=True, delete_failed=False):
     added = 0
+    group_names = []
+
     jobs = os.listdir(path)
     for job in tqdm(jobs):
         for file in os.listdir(os.path.join(path, job)):
@@ -118,6 +127,7 @@ def add_results_to_db(path, clean_after=True, act=True, delete_failed=False):
                     else:
                         item = Client_HDF5(hdf5_from).load(full_load=True)
                         Client().push(item)
+                    group_names.append(item.group_name)
                     added += 1
 
                 except OSError as e:
@@ -135,6 +145,10 @@ def add_results_to_db(path, clean_after=True, act=True, delete_failed=False):
 
                 
     print(f"{added} items " + ("can be " if not act else "") + "added to database.")
+    print("The following groups were added:")
+    for name, count in Counter(group_names).items():
+        print("   "+name + f"\t\t: {count}")
+        
     
 def delete_by_groupname(groupnames, act):
     client = Client()

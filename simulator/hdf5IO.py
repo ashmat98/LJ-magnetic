@@ -47,6 +47,9 @@ class Simulation:
         return self.df
 
     def load_df(self):
+        if hasattr(self, "df"):
+            return self.df
+        
         history = Client_HDF5(self._hdf5_path).load_history(keys=["time", "total"])
         if len(history) <= 1:
             self.df = None
@@ -56,6 +59,8 @@ class Simulation:
 
         data = {key[6:]:value for key, value in history.items()}
         
+        data["time"] = np.round(data["time"], 5)
+
         self.df = pd.DataFrame(data).set_index("time")
         return self.df
     
@@ -74,8 +79,11 @@ class Simulation:
 
 
 class Client_HDF5:
-    def __init__(self, path):
+    def __init__(self, path=None, hash=None):
         self.path = path
+
+        if path is None:
+            self.path = os.path.join(HDF5_PATH, hash + ".hdf5")
 
     def push(self, item : Simulation):
         
@@ -129,7 +137,7 @@ class Client_HDF5:
         item = Simulation()
         with h5py.File(self.path, 'r') as f:
             item.id = f.attrs.get("id")
-            item.cls = f.attrs.get("id")
+            item.cls = f.attrs.get("cls")
             item.name = f.attrs.get("name")
             item.group_name = f.attrs.get("group_name")
             item.eccentricity = f.attrs.get("eccentricity")

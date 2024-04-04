@@ -116,8 +116,34 @@ class SimulatorLennardLammps(SimulatorLennard):
         time needed for single iteration.
         n : particle number
         """
-        return datetime.timedelta(seconds=np.maximum(2e-3, 1.0e-6 * n**1 * 3))
+        return datetime.timedelta(seconds=np.maximum(5e-5,1.0e-6 * n**1 *3))
 
+    def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01,
+                          algorithm="EULER", before_step=None, N=None, **kwargs):
+        
+        N = self.particle_number()
+
+        estimated_time = self.iteration_time_estimate(N)*iteration_time/dt
+        estimated_time = datetime.timedelta(
+            seconds=int(estimated_time.total_seconds()))
+        
+        N = kwargs.get("output_particles", self.particle_number())
+        
+        def memory_estimate(n):
+            """
+            memory needed for single record in MegaBytes
+            n : particle number
+            """
+            return (85 * n) / 1024**2
+
+        estimated_memory = memory_estimate(N) * iteration_time / record_interval
+        
+        
+        return {
+            "time": estimated_time,
+            "memory": estimated_memory
+        }
+    
     def simulate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01, warmup=0,
                  run_lammps=True,
                  particle_properties=True,

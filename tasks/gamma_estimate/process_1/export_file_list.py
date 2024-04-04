@@ -7,14 +7,14 @@ files = []
 
 
 def case1():
-    from simulator.models import Client, Simulation
+    from simulator.models import Client, SimulationAlchemy as Simulation
 
     client = Client()
     files = []
 
     with client.Session() as session:
         query = (session.query(Simulation.hash)
-                 .where(Simulation.group_name.in_(["GE 2.2"] ))
+                 .where(Simulation.group_name.in_(["GE 1.0"] ))
                  ).all()
     
 

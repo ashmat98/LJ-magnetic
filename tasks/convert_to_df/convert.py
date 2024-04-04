@@ -16,7 +16,7 @@ def f(hdf5_path):
         particles = f.attrs.get("particles")
     
     
-    ts = history["time"]
+    ts = history["time"].round(5)
     rs = history["rs"].transpose(1,0,2)
     vs = history["vs"].transpose(1,0,2)
     data["time"] = ts

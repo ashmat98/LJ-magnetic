@@ -30,19 +30,29 @@ $$;
 
 select 
 group_name,
-pg_temp.tostr(min(eccentricity), max(eccentricity), 2) AS eccentricity,
+pg_temp.tostr(min(eccentricity), max(eccentricity), 4) AS eccentricity,
 pg_temp.tostr(min(particles),max(particles),2) as N,
 pg_temp.tostr(min(iterations)*AVG(record_interval), max(iterations)*AVG(record_interval),0)  as t,
-pg_temp.tostr(min("L_init"), max("L_init"),3)  as "L_init",
 pg_temp.tostr(min(iterations), max(iterations),0)  as iterations,
 count(id),
+pg_temp.tostr(min("L_init"), max("L_init"),3)  as "L_init",
+pg_temp.tostr(min("sigma"), max("sigma"),3)  as "sigma",
 CASE
     when group_name = 'ER 6.1' then 'check_diffusion; changing sigma to check diffusion hypothesis of L'
     when group_name = 'ER 6.2' then 'check_diffusion; same as ER 6.1 with more particles'
     when group_name = 'ER 6.3' then 'initial angular momentum is twice less'
     when group_name = 'ER 3.2' then 'sigma 0.15 with warmup'
     when group_name = 'ER 2' then 'eccentricity 0.2 faster relaxation'
-    when group_name = 'ER 3.1' then 'sigma 0.1 with warmup'
+    when group_name = 'ER 3.1' then 'sigma 0.1 with warmup; good relaxation'
+    when group_name = 'ER 3.13.skin.lammps' then 'finishes at L=250, slow relaxation'
+    when group_name = 'ER 3.15.skin.lammps' then 'good relaxation; time interval is short'
+    when group_name = 'ER 3.1.skin.lammps' then 'good relaxation; time interval is short'
+    when group_name = 'ER 3.35.lammps' then 'good relaxation; time interval is short'
+    when group_name = 'ER 3.303.weak.lammps' then 'just perfect; long time inretval, good relaxation'
+    when group_name = 'ER 3.3.lammps' then 'finishes at L=260, slow relaxation'
+    when group_name = 'ER 3.403.weak.lammps' then 'finishes at L=30, normal relaxation'
+    when group_name = 'ER 3.404.weak.lammps' then 'just perfect; long time inretval, good relaxation'
+    when group_name = 'ER 3.600.weak.lammps' then 'initial omega is small'
     when group_name = 'ER 3' then 'sigma 0.1'
     when group_name = 'ER 5' then 'check_diffusion; without warmup'
     when group_name = 'Ensemble 5.1' then 'random grid, to check theoretical dependencied f_omega and f_beta'

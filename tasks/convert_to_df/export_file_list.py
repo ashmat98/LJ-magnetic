@@ -23,25 +23,28 @@ def case1():
     print(f"Total {len(files)} files")
 
 def case2():
-    from simulator.models import Client, Simulation
+    from simulator.models import Client, SimulationAlchemy as Simulation
 
     client = Client()
     # reprocess specific entries
     hdf5_files = os.listdir(os.getenv("hdf5_dir"))
+    dfs_files = os.listdir(os.getenv("dfs_dir"))
 
     files = []
-
+    
     with client.Session() as session:
         query = (session.query(Simulation.hash)
-                #  .where(Simulation.group_name.in_(["ER 6.2"] ))
+                 .where(Simulation.group_name.in_(["ER 3.15.skin.lammps"] ))
                  ).all()
-    
+    print("Length of the query:", len(query))
+
 
     for file, in query:
         file += ".hdf5"
         if file not in hdf5_files:
             continue
-
+        if file in dfs_files:
+            continue
         filepath = os.path.join(os.getenv("hdf5_dir"), file)
        
         files.append(file + "\n")
@@ -52,4 +55,4 @@ def case2():
     print(f"Total {len(files)} files")
 
 if __name__=="__main__":
-    case1()
+    case2()

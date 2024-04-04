@@ -480,6 +480,7 @@ class SimulatorBase:
         if self.history.size() == 1:
             self.start_time = datetime.datetime.now()
 
+    
     def simulate_estimate(self, iteration_time=1.0, dt=0.0005, record_interval=0.01,
                           algorithm="EULER", before_step=None, N=None, **kwargs):
         if N is None:

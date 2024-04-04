@@ -9,9 +9,7 @@ from simulator.ideal import SimulatorIdeal
 from simulator.lennard import SimulatorLennard
 from simulator.magnetic import SimulatorMagnetic
 
-import multiprocessing
 from multiprocessing import Pool, cpu_count
-from relaxation.estimators import RelaxationFinder
 # import logging.config
 # import logging
 from utils.logs import get_logger
@@ -20,7 +18,7 @@ from tqdm.notebook import tqdm
 
 import sys, os, time
 params_model = {
-    "group_name" : "Ensemble 5.1",
+    "group_name" : "Ensemble 5.1 copy",
     "R" : 1.0,
     "Rz" : 0.25,
     "Bz" : 0,
@@ -68,8 +66,11 @@ perm = rng.permutation(len(grid_filtered))
 grid = grid_filtered[perm]
 
 print("Number of simulations:",len(grid))
+print("min sigma grid:",grid[:,2].min())
+print("index of max density:", (grid[:, 0]**0.5/grid[:,3]**0.333).argmin())
+print("          sigma grid:", grid[7, 2])
 print("Maximum lasting index:",grid[:,3].argmax())
-
+print(0.34/0.05)
 
 def f(i):
     energy, angular_momentum_factor, sigma_grid, _ = grid[i]

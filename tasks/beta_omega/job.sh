@@ -59,9 +59,8 @@
 # You can utilize name expansion to make sure each job has a uniq output file if the file already exists 
 # Slurm will delete all the content that was there before before writing to this file so beware.
 
-#SBATCH --output=/data/biophys/ashmat/LJ-magnetic/outputs/task-%A_%a.out
-# #SBATCH --error=/data/biophys/ashmat/LJ-magnetic/outputs/task-%A_%a.err
-
+#SBATCH --output=/data/biophys/ashmat/outputs/%A_%a
+# #SBATCH --error=/data/biophys/ashmat/outputs/%A_%a.err
 
 # causes jobs to fail if one command fails - makes failed jobs easier to find with tools like sacct
 set -e
@@ -75,7 +74,7 @@ START=$(date +%s.%N)
 job_id=${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}
 
 data="/data/biophys/ashmat/LJ-magnetic"
-source=/home/ashmat/cluster/LJ-magnetic/source
+source=/home/ashmat/cluster/LJ-magnetic
 scratch="/scratch/$USER/$job_id"
 
 
@@ -90,17 +89,17 @@ mkdir -p $scratch/results
 
 cd $scratch
 # Copy your program (and maybe input files if you need them)
-cp -r $source .
+cp -r $source ./source
 cd ./source
 
-ln -s $data/outputs/task-$job_id.out $data/results/$job_id/stdout.txt
+# ln -s $data/outputs/task-$job_id.out $data/results/$job_id/stdout.txt
 # ln -s $root/outputs/task-$SLURM_JOB_ID.err $project/results/$SLURM_JOB_ID/stderr.txt
 
 export HDF5_PATH=${scratch}/results
 export LOG_PATH=${scratch}/results/
 
-module load python-3.7.4
-make offline
+module load python
+# make offline
 python tasks/beta_omega/run_simulation.py -i ${SLURM_ARRAY_TASK_ID}
 
 # copy results to an accessable location

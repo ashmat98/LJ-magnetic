@@ -139,7 +139,11 @@ def submit_all_jobs(ask_confirmation=True, as_array=False):
     global submitted_jobs
     
     if ask_confirmation:
-        reply = input(f"Submit {len(submitted_jobs)} jobs? [y/N]")
+        if as_array:
+            prompt = f"Submit {len(submitted_jobs)} jobs as array? [y/N]"
+        else:
+            prompt = f"Submit {len(submitted_jobs)} jobs? [y/N]"
+        reply = input(prompt)
         if reply == "y":
             path = dublicate_source()
             # print(DUBLICATE_SOURCE_PATH)
